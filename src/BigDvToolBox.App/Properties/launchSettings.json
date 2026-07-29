@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "BigDvToolBox.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "BigDvToolBox.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

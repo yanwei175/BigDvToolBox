@@ -1,0 +1,44 @@
+## .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+artifacts/
+
+## Build and test output
+[Ll]og/
+[Ll]ogs/
+*.log
+*.binlog
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+## NuGet and packaging
+*.nupkg
+*.snupkg
+project.lock.json
+AppPackages/
+BundleArtifacts/
+*.msix
+*.msixupload
+*.appx
+*.appxbundle
+*.appxupload
+publish/
+
+## IDEs and local tooling
+.idea/
+_ReSharper*/
+*.DotSettings.user
+*.dotCover
+
+## OS files
+.DS_Store
+Thumbs.db
