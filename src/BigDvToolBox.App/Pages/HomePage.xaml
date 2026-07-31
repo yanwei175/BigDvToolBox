@@ -6,16 +6,130 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:BigDvToolBox.App.Pages"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:navigation="using:BigDvToolBox_App.Navigation"
     mc:Ignorable="d">
 
-    <Grid Padding="24,16,24,16" RowSpacing="24">
+    <Grid Padding="32,28,32,32" RowSpacing="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Home" />
-        <TextBlock Grid.Row="1" Text="This is the Home page" />
-        <Button Grid.Row="2" Content="测试" Click="Button_Click"/>
+
+        <Grid ColumnSpacing="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border
+                Width="72"
+                Height="72"
+                Background="Transparent"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                CornerRadius="12">
+                <Image
+                    Width="56"
+                    Height="56"
+                    AutomationProperties.Name="BigDvToolBox 应用图标"
+                    Source="/Assets/BigDvToolBoxIcon-1024.png" />
+            </Border>
+
+            <StackPanel
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Spacing="6">
+                <TextBlock
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    Text="BigDvToolBox" />
+                <TextBlock
+                    MaxWidth="720"
+                    HorizontalAlignment="Left"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="选择一个工具开始使用。已打开的工具会保留在上方标签页中，方便随时切换。"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+
+        <GridView
+            x:Name="ToolCards"
+            Grid.Row="1"
+            AutomationProperties.AutomationId="HomeToolCards"
+            AutomationProperties.Name="工具列表"
+            IsItemClickEnabled="True"
+            ItemClick="ToolCards_ItemClick"
+            ItemsSource="{x:Bind Tools, Mode=OneWay}"
+            SelectionMode="None">
+            
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid
+                        ItemHeight="212"
+                        ItemWidth="316"
+                        Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
+            
+            <GridView.ItemContainerStyle>
+                <Style TargetType="GridViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                    <Setter Property="Margin" Value="0,0,16,16" />
+                    <Setter Property="Padding" Value="0" />
+                </Style>
+            </GridView.ItemContainerStyle>
+            
+            <GridView.ItemTemplate>
+                <DataTemplate x:DataType="navigation:ToolPageDefinition">
+                    <Border
+                        Padding="20"
+                        AutomationProperties.Name="{x:Bind Title}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <Grid RowSpacing="14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <SymbolIcon
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AccessibilityView="Raw"
+                                Symbol="{x:Bind Icon}" />
+
+                            <StackPanel
+                                Grid.Row="1"
+                                Spacing="6">
+                                <TextBlock
+                                    Style="{StaticResource SubtitleTextBlockStyle}"
+                                    Text="{x:Bind Title}" />
+                                <TextBlock 
+                                    MaxLines="2"
+                                    Style="{StaticResource BodyTextBlockStyle}"
+                                    Text="{x:Bind Description}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <StackPanel
+                                Grid.Row="2"
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="6">
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="打开工具" />
+                                <SymbolIcon
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Symbol="Forward" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </GridView.ItemTemplate>
+        </GridView>
     </Grid>
 </Page>

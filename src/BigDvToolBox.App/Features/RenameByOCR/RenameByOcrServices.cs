@@ -15,7 +15,10 @@ internal interface IDocumentRenderer
 
 internal interface IOcrService : IDisposable
 {
-    Task<string> RecognizeAsync(byte[] pngBytes, CancellationToken cancellationToken);
+    Task<string> RecognizeAsync(
+        byte[] pngBytes,
+        CancellationToken cancellationToken,
+        OcrSegmentationMode segmentationMode = OcrSegmentationMode.Auto);
 }
 
 internal sealed class WindowsDocumentRenderer : IDocumentRenderer
@@ -49,13 +52,14 @@ internal sealed class WindowsDocumentRenderer : IDocumentRenderer
                 BitmapEncoderId = BitmapEncoder.PngEncoderId,
             };
             await page.RenderToStreamAsync(stream, options);
-            return new RenderedDocument(await ReadBytesAsync(stream), width, height);
+            byte[] renderedPng = await ReadBytesAsync(stream);
+            return await CreateRenderedDocumentAsync(path, renderedPng, pdfDpi, cancellationToken);
         }
 
         using IRandomAccessStream imageStream = await file.OpenAsync(FileAccessMode.Read);
         BitmapDecoder decoder = await BitmapDecoder.CreateAsync(imageStream);
         byte[] png = await EncodeAsync(decoder, null, cancellationToken);
-        return new RenderedDocument(png, decoder.PixelWidth, decoder.PixelHeight);
+        return await CreateRenderedDocumentAsync(path, png, pdfDpi, cancellationToken);
     }
 
     public async Task<byte[]> CropAsync(
@@ -78,7 +82,36 @@ internal sealed class WindowsDocumentRenderer : IDocumentRenderer
         }
         input.Seek(0);
         BitmapDecoder decoder = await BitmapDecoder.CreateAsync(input);
-        return await EncodeAsync(decoder, region.ToPixelBounds(document.PixelWidth, document.PixelHeight), cancellationToken);
+        BitmapBounds bounds = region.ToPixelBounds(
+            decoder.OrientedPixelWidth,
+            decoder.OrientedPixelHeight);
+        return await EncodeAsync(decoder, bounds, cancellationToken);
+    }
+
+    private static async Task<RenderedDocument> CreateRenderedDocumentAsync(
+        string sourcePath,
+        byte[] pngBytes,
+        int pdfDpi,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var input = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(input))
+        {
+            writer.WriteBytes(pngBytes);
+            await writer.StoreAsync();
+            await writer.FlushAsync();
+            writer.DetachStream();
+        }
+
+        input.Seek(0);
+        BitmapDecoder decoder = await BitmapDecoder.CreateAsync(input);
+        return new RenderedDocument(
+            sourcePath,
+            pngBytes,
+            decoder.OrientedPixelWidth,
+            decoder.OrientedPixelHeight,
+            pdfDpi);
     }
 
     private static async Task<byte[]> EncodeAsync(
@@ -131,7 +164,10 @@ internal sealed class TesseractOcrService : IOcrService
         _engine = new TesseractEngine(tessdataPath, "eng+ces+pol+rus", EngineMode.Default);
     }
 
-    public async Task<string> RecognizeAsync(byte[] pngBytes, CancellationToken cancellationToken)
+    public async Task<string> RecognizeAsync(
+        byte[] pngBytes,
+        CancellationToken cancellationToken,
+        OcrSegmentationMode segmentationMode = OcrSegmentationMode.Auto)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -140,7 +176,13 @@ internal sealed class TesseractOcrService : IOcrService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 using Pix image = Pix.LoadFromMemory(pngBytes);
-                using Page page = _engine.Process(image);
+                PageSegMode pageSegMode = segmentationMode switch
+                {
+                    OcrSegmentationMode.SingleLine => PageSegMode.SingleLine,
+                    OcrSegmentationMode.SingleWord => PageSegMode.SingleWord,
+                    _ => PageSegMode.Auto,
+                };
+                using Page page = _engine.Process(image, pageSegMode);
                 return page.GetText().Trim();
             }, cancellationToken);
         }

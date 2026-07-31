@@ -1,5 +1,8 @@
 using BigDvToolBox_App.Features.RenameByOCR;
 using System.Runtime.InteropServices;
+using System.Text;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
 
 namespace BigDvToolBox.Tests;
 
@@ -186,10 +189,258 @@ public sealed class RenameByOcrTests
         }
     }
 
+    [TestMethod]
+    public async Task Renderer_ReportsActualEncodedDimensionsAndCropsAgainstThem()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string pdfPath = Path.Combine(folder, "fixture.pdf");
+            File.WriteAllBytes(pdfPath, CreateSinglePagePdf("9341BG"));
+            var renderer = new WindowsDocumentRenderer();
+
+            RenderedDocument document =
+                await renderer.RenderAsync(pdfPath, 72, CancellationToken.None);
+            (uint decodedWidth, uint decodedHeight) = await DecodePngSizeAsync(document.PngBytes);
+
+            Assert.AreEqual(pdfPath, document.SourcePath);
+            Assert.AreEqual(72, document.PdfDpi);
+            Assert.AreEqual(decodedWidth, document.PixelWidth);
+            Assert.AreEqual(decodedHeight, document.PixelHeight);
+
+            var region = new NormalizedOcrRegion(0.1, 0.2, 0.5, 0.4);
+            byte[] crop = await renderer.CropAsync(document, region, CancellationToken.None);
+            (uint cropWidth, uint cropHeight) = await DecodePngSizeAsync(crop);
+            BitmapBounds expected = region.ToPixelBounds(decodedWidth, decodedHeight);
+            Assert.AreEqual(expected.Width, cropWidth);
+            Assert.AreEqual(expected.Height, cropHeight);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task CurrentPreviewAndFixedRegionOcr_ReuseTheSameRenderedDocument()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string pdfPath = Path.Combine(folder, "current.pdf");
+            File.WriteAllText(pdfPath, "fixture");
+            byte[] previewBytes = [1, 2, 3];
+            byte[] croppedBytes = [4, 5, 6];
+            var document = new RenderedDocument(pdfPath, previewBytes, 1000, 800, 400);
+            var renderer = new RecordingRenderer(document, croppedBytes);
+            var ocr = new RecordingOcrService("9341BG");
+            using var viewModel = new RenameByOcrViewModel(renderer, () => ocr);
+
+            await viewModel.LoadFolderAsync(folder);
+            RenderedDocument? current = viewModel.CurrentDocument;
+            viewModel.SetSelectedRegion(new NormalizedOcrRegion(0.1, 0.1, 0.4, 0.2));
+            await viewModel.GenerateRenamePreviewAsync();
+
+            Assert.AreSame(document, current);
+            Assert.AreSame(previewBytes, viewModel.CurrentPreviewBytes);
+            Assert.AreSame(current, renderer.CroppedDocument);
+            Assert.AreSame(croppedBytes, ocr.RecognizedBytes);
+            Assert.AreEqual(1, renderer.RenderCount);
+            Assert.AreEqual("9341BG", viewModel.Results.Single().OcrText);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SwitchingFiles_ReplacesDocumentContextWithMatchingSourcePath()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string first = Path.Combine(folder, "a.pdf");
+            string second = Path.Combine(folder, "b.pdf");
+            File.WriteAllText(first, "first");
+            File.WriteAllText(second, "second");
+            var renderer = new PerPathRenderer();
+            using var viewModel = new RenameByOcrViewModel(renderer);
+
+            await viewModel.LoadFolderAsync(folder);
+            RenderedDocument? firstDocument = viewModel.CurrentDocument;
+            await viewModel.SelectNextAsync();
+
+            Assert.IsNotNull(firstDocument);
+            Assert.AreEqual(first, firstDocument.SourcePath);
+            Assert.IsNotNull(viewModel.CurrentDocument);
+            Assert.AreEqual(second, viewModel.CurrentDocument.SourcePath);
+            Assert.AreEqual(viewModel.CurrentFilePath, viewModel.CurrentDocument.SourcePath);
+            Assert.AreNotSame(firstDocument, viewModel.CurrentDocument);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task KnownAquavitLabels_RecognizeExpectedCodes()
+    {
+        string? folder = Environment.GetEnvironmentVariable("BIGDV_OCR_FIXTURE_DIR");
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        {
+            Assert.Inconclusive("Set BIGDV_OCR_FIXTURE_DIR to run the local six-label OCR regression.");
+        }
+
+        Dictionary<string, string> expected = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["9341BG-Label.pdf"] = "9341BG",
+            ["9341CH-Label.pdf"] = "9341CH",
+            ["9341MB-Label.pdf"] = "9341MB",
+            ["9346BG-Label.pdf"] = "9346BG",
+            ["9346CH-Label.pdf"] = "9346CH",
+            ["9346MB-Label.pdf"] = "9346MB",
+        };
+        var renderer = new WindowsDocumentRenderer();
+        string tessdata = Path.Combine(
+            AppContext.BaseDirectory,
+            "Features",
+            "RenameByOCR",
+            "tessdata");
+        using var ocr = new TesseractOcrService(tessdata);
+        var region = new NormalizedOcrRegion(0.0321, 0.0726, 0.3356, 0.1627);
+
+        foreach ((string fileName, string expectedText) in expected)
+        {
+            string path = Path.Combine(folder, fileName);
+            Assert.IsTrue(File.Exists(path), $"Missing OCR fixture: {path}");
+            RenderedDocument document =
+                await renderer.RenderAsync(path, 72, CancellationToken.None);
+            byte[] crop = await renderer.CropAsync(document, region, CancellationToken.None);
+            string actual = await ocr.RecognizeAsync(
+                crop,
+                CancellationToken.None,
+                OcrSegmentationMode.SingleWord);
+            Assert.AreEqual(expectedText, actual, fileName);
+        }
+    }
+
+    private static async Task<(uint Width, uint Height)> DecodePngSizeAsync(byte[] pngBytes)
+    {
+        using var stream = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(stream))
+        {
+            writer.WriteBytes(pngBytes);
+            await writer.StoreAsync();
+            await writer.FlushAsync();
+            writer.DetachStream();
+        }
+
+        stream.Seek(0);
+        BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream);
+        return (decoder.OrientedPixelWidth, decoder.OrientedPixelHeight);
+    }
+
+    private static byte[] CreateSinglePagePdf(string text)
+    {
+        string content = $"BT /F1 32 Tf 20 120 Td ({text}) Tj ET";
+        string[] objects =
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 170] " +
+            "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+            $"<< /Length {Encoding.ASCII.GetByteCount(content)} >>\nstream\n{content}\nendstream",
+        ];
+
+        var builder = new StringBuilder("%PDF-1.4\n");
+        var offsets = new List<int> { 0 };
+        for (int index = 0; index < objects.Length; index++)
+        {
+            offsets.Add(Encoding.ASCII.GetByteCount(builder.ToString()));
+            builder.Append(index + 1).Append(" 0 obj\n")
+                .Append(objects[index]).Append("\nendobj\n");
+        }
+
+        int xrefOffset = Encoding.ASCII.GetByteCount(builder.ToString());
+        builder.Append("xref\n0 ").Append(objects.Length + 1).Append('\n')
+            .Append("0000000000 65535 f \n");
+        foreach (int offset in offsets.Skip(1))
+        {
+            builder.Append(offset.ToString("D10")).Append(" 00000 n \n");
+        }
+
+        builder.Append("trailer\n<< /Size ").Append(objects.Length + 1)
+            .Append(" /Root 1 0 R >>\nstartxref\n")
+            .Append(xrefOffset).Append("\n%%EOF\n");
+        return Encoding.ASCII.GetBytes(builder.ToString());
+    }
+
     private static string CreateTempFolder()
     {
         string path = Path.Combine(Path.GetTempPath(), "BigDvToolBox.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private sealed class RecordingRenderer(
+        RenderedDocument document,
+        byte[] croppedBytes) : IDocumentRenderer
+    {
+        public int RenderCount { get; private set; }
+        public RenderedDocument? CroppedDocument { get; private set; }
+
+        public Task<RenderedDocument> RenderAsync(
+            string path,
+            int pdfDpi,
+            CancellationToken cancellationToken)
+        {
+            RenderCount++;
+            return Task.FromResult(document);
+        }
+
+        public Task<byte[]> CropAsync(
+            RenderedDocument source,
+            NormalizedOcrRegion region,
+            CancellationToken cancellationToken)
+        {
+            CroppedDocument = source;
+            return Task.FromResult(croppedBytes);
+        }
+    }
+
+    private sealed class RecordingOcrService(string text) : IOcrService
+    {
+        public byte[]? RecognizedBytes { get; private set; }
+
+        public Task<string> RecognizeAsync(
+            byte[] pngBytes,
+            CancellationToken cancellationToken,
+            OcrSegmentationMode segmentationMode = OcrSegmentationMode.Auto)
+        {
+            RecognizedBytes = pngBytes;
+            return Task.FromResult(text);
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class PerPathRenderer : IDocumentRenderer
+    {
+        public Task<RenderedDocument> RenderAsync(
+            string path,
+            int pdfDpi,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new RenderedDocument(path, [1], 100, 100, pdfDpi));
+
+        public Task<byte[]> CropAsync(
+            RenderedDocument document,
+            NormalizedOcrRegion region,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(document.PngBytes);
     }
 }

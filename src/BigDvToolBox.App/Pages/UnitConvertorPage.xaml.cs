@@ -19,7 +19,21 @@ namespace BigDvToolBox_App.Pages
         public UnitConvertorPage()
         {
             InitializeComponent();
+            RegisterLengthEnterHandlers();
         }
+
+        private void RegisterLengthEnterHandlers()
+        {
+            RegisterEnterHandler(MetricValueNumberBox, MetricInput_KeyUp);
+            RegisterEnterHandler(MetricUnitComboBox, MetricInput_KeyUp);
+            RegisterEnterHandler(DecimalInchNumberBox, DecimalInchInput_KeyUp);
+            RegisterEnterHandler(FractionWholeNumberBox, FractionInput_KeyUp);
+            RegisterEnterHandler(FractionNumeratorNumberBox, FractionInput_KeyUp);
+            RegisterEnterHandler(FractionDenominatorComboBox, FractionInput_KeyUp);
+        }
+
+        private static void RegisterEnterHandler(UIElement element, KeyEventHandler handler) =>
+            element.AddHandler(UIElement.KeyUpEvent, handler, handledEventsToo: true);
 
         private void MetricInput_KeyUp(object sender, KeyRoutedEventArgs e)
         {

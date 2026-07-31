@@ -1,4 +1,6 @@
 using BigDvToolBox.App.Pages;
+using BigDvToolBox_App.Features.ImageProcessing;
+using BigDvToolBox_App.Features.PdfOutlineFonts;
 using BigDvToolBox_App.Features.RenameByOCR;
 using BigDvToolBox_App.Navigation;
 using BigDvToolBox_App.Pages;
@@ -6,6 +8,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Windows.Graphics;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -18,16 +21,52 @@ namespace BigDvToolBox_App
     public sealed partial class MainWindow : Window
     {
         private const string HomePageId = "home";
+        private const double InitialWidthRatio = 0.85;
+        private const double InitialHeightRatio = 0.82;
 
         // 新增工具页面时只需在这里注册一次，左侧导航和标签页会共用这些信息。
         private static readonly IReadOnlyList<ToolPageDefinition> ToolPages =
         [
-            new(HomePageId, "Home", Symbol.Home, typeof(HomePage), IsClosable: false),
-            new("about", "About", Symbol.Help, typeof(AboutPage)),
-            new("sample", "Sample", Symbol.Accept, typeof(MainPage)),
-            new("unitCover", "单位转换2", Symbol.Character, typeof(UnitConvertorPage)),
-            new("renameByOCR", "Rename By OCR", Symbol.Rename, typeof(RenameByOcrPage)),
-            new("settings", "Settings", Symbol.Setting, typeof(SettingsPage), IsSettings: true),
+            new(
+                HomePageId,
+                "首页",
+                Symbol.Home,
+                typeof(HomePage),
+                "浏览并快速打开工具箱中的工具。",
+                IsClosable: false,
+                ShowOnHome: false),
+            new(
+                "unitCover",
+                "单位转换",
+                Symbol.Switch,
+                typeof(UnitConvertorPage),
+                "在公制、小数英寸、分数英寸以及常用流量单位之间转换。"),
+            new(
+                "renameByOCR",
+                "OCR 重命名",
+                Symbol.Rename,
+                typeof(RenameByOcrPage),
+                "识别图片中的文字，并根据识别结果批量整理文件名。"),
+            new(
+                "pdfOutlineFonts",
+                "PDF 字体转曲",
+                Symbol.Document,
+                typeof(PdfOutlineFontsPage),
+                "将 PDF 中的字体转换为轮廓，减少跨设备显示差异。"),
+            new(
+                "imageProcessing",
+                "图片处理",
+                Symbol.Pictures,
+                typeof(ImageProcessingPage),
+                "批量调整图片尺寸和输出设置，快速完成常见图像处理。"),
+            new(
+                "settings",
+                "设置",
+                Symbol.Setting,
+                typeof(SettingsPage),
+                "调整工具箱的外观和行为。",
+                IsSettings: true,
+                ShowOnHome: false),
         ];
 
         private readonly Dictionary<string, ToolPageDefinition> _pageDefinitions =
@@ -49,10 +88,31 @@ namespace BigDvToolBox_App
             SetTitleBar(AppTitleBar);
 
             AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
-            AppWindow.SetIcon("Assets/WPFGallery.ico");
+            // SetIcon 需要文件系统路径；发布后不能依赖进程的当前工作目录。
+            string iconPath = Path.Combine(
+                AppContext.BaseDirectory,
+                "Assets",
+                "BigDvToolBoxIcon.ico");
+            AppWindow.SetIcon(iconPath);
+            SetInitialWindowBounds();
 
             BuildNavigationItems();
             OpenOrActivateTool(HomePageId);
+        }
+
+        private void SetInitialWindowBounds()
+        {
+            DisplayArea displayArea = DisplayArea.GetFromWindowId(
+                AppWindow.Id,
+                DisplayAreaFallback.Primary);
+            RectInt32 workArea = displayArea.WorkArea;
+
+            int width = (int)Math.Round(workArea.Width * InitialWidthRatio);
+            int height = (int)Math.Round(workArea.Height * InitialHeightRatio);
+            int x = workArea.X + ((workArea.Width - width) / 2);
+            int y = workArea.Y + ((workArea.Height - height) / 2);
+
+            AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
         }
 
         private void TitleBar_PaneToggleRequested(TitleBar sender, object args)
@@ -121,7 +181,13 @@ namespace BigDvToolBox_App
             }
 
             var frame = new Frame();
-            if (!frame.Navigate(definition.PageType))
+            object? navigationParameter = definition.Id == HomePageId
+                ? new HomePageNavigationContext(
+                    ToolPages.Where(page => page.ShowOnHome).ToArray(),
+                    OpenOrActivateTool)
+                : null;
+
+            if (!frame.Navigate(definition.PageType, navigationParameter))
             {
                 throw new InvalidOperationException($"Unable to navigate to {definition.PageType.FullName}.");
             }

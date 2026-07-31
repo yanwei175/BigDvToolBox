@@ -36,4 +36,4 @@ dotnet run --project src/BigDvToolBox.App/BigDvToolBox.App.csproj -p:Platform=x6
 
 创建新的 WinUI `Page` 后，在 `MainWindow.xaml.cs` 的 `ToolPages` 注册表中
 加入一条 `ToolPageDefinition` 即可。NavigationView 和 TabView 会共用注册项的
-ID、标题、图标和页面类型，无需分别维护两套导航代码。
+ID、标题、图标和页面类型，无需分别维护两套导航代码。 

@@ -11,5 +11,14 @@ internal sealed record ToolPageDefinition(
     string Title,
     Symbol Icon,
     Type PageType,
+    string Description = "",
     bool IsClosable = true,
-    bool IsSettings = false);
+    bool IsSettings = false,
+    bool ShowOnHome = true);
+
+/// <summary>
+/// 首页使用的导航上下文。首页与左侧导航共享页面注册数据和打开入口。
+/// </summary>
+internal sealed record HomePageNavigationContext(
+    IReadOnlyList<ToolPageDefinition> Tools,
+    Action<string> OpenTool);

@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="BigDvToolBox_App.Features.ImageProcessing.ImageProcessingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:BigDvToolBox_App.Features.ImageProcessing"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Unloaded="Page_Unloaded"
+    mc:Ignorable="d">
+
+    <Grid Padding="20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" ColumnSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="SettingsRow" Height="*" />
+                <RowDefinition x:Name="FilesRow" Height="0" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SettingsColumn" Width="340" />
+                <ColumnDefinition x:Name="FilesColumn" Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup>
+                    <VisualState x:Name="NarrowLayout">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="0" />
+                        </VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="SettingsRow.Height" Value="Auto" />
+                            <Setter Target="FilesRow.Height" Value="*" />
+                            <Setter Target="SettingsColumn.Width" Value="*" />
+                            <Setter Target="FilesColumn.Width" Value="0" />
+                            <Setter Target="SettingsPanel.MaxHeight" Value="390" />
+                            <Setter Target="FilePanel.(Grid.Row)" Value="1" />
+                            <Setter Target="FilePanel.(Grid.Column)" Value="0" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="WideLayout">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="900" />
+                        </VisualState.StateTriggers>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+
+            <ScrollViewer
+                x:Name="SettingsPanel"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="0,0,14,0" Spacing="14">
+                    <TextBlock
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="图片处理" />
+                    <TextBlock
+                        Text="批量按长边等比例缩小 JPG 和 PNG 图片，小于目标尺寸的图片不会被放大。"
+                        TextWrapping="Wrap" />
+
+
+
+                    <NumberBox
+                        AutomationProperties.AutomationId="ImageLongEdgeInput"
+                        Description="只缩小长边超过该数值的图片。"
+                        Header="目标长边（像素）"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
+                        Minimum="1"
+                        SmallChange="100"
+                        SpinButtonPlacementMode="Compact"
+                        Value="{x:Bind ViewModel.TargetLongEdge, Mode=TwoWay}" />
+                    <Button
+                        AutomationProperties.AutomationId="SaveImageLongEdgeDefaultButton"
+                        Click="SaveLongEdgeDefault_Click"
+                        Content="将当前长边设为默认值"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}" />
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="JPEG 质量" />
+                        <TextBlock
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="ImageJpegQualityValue"
+                            Text="{x:Bind ViewModel.JpegQuality, Mode=OneWay}" />
+                    </Grid>
+                    <Slider
+                        AutomationProperties.AutomationId="ImageJpegQualitySlider"
+                        AutomationProperties.Name="JPEG 质量"
+                        IsEnabled="{x:Bind ViewModel.CanUseJpegQuality, Mode=OneWay}"
+                        Maximum="100"
+                        Minimum="1"
+                        SmallChange="1"
+                        StepFrequency="1"
+                        Value="{x:Bind ViewModel.JpegQuality, Mode=OneWay}"
+                        ValueChanged="JpegQuality_ValueChanged" />
+                    <TextBlock
+                        Text="{x:Bind ViewModel.JpegQualityDescription, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+
+                    <ComboBox
+                        AutomationProperties.AutomationId="ImageOutputFormat"
+                        Header="输出格式"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
+                        SelectedIndex="{x:Bind ViewModel.OutputFormatIndex, Mode=TwoWay}">
+                        <x:String>按原格式</x:String>
+                        <x:String>JPG</x:String>
+                        <x:String>PNG</x:String>
+                    </ComboBox>
+
+                    <TextBox
+                        AutomationProperties.AutomationId="ImageOutputDirectory"
+                        Header="输出目录"
+                        IsReadOnly="True"
+                        Text="{x:Bind ViewModel.OutputDirectoryDisplay, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button
+                            AutomationProperties.AutomationId="ChooseImageOutputDirectoryButton"
+                            Click="ChooseOutputDirectory_Click"
+                            Content="选择目录"
+                            HorizontalAlignment="Stretch"
+                            IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}" />
+                        <Button
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="ResetImageOutputDirectoryButton"
+                            Click="ResetOutputDirectory_Click"
+                            Content="使用源目录"
+                            HorizontalAlignment="Stretch"
+                            IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}" />
+                    </Grid>
+                    <Button
+                        AutomationProperties.AutomationId="SaveImageOutputDirectoryDefaultButton"
+                        Click="SaveOutputDirectoryDefault_Click"
+                        Content="将当前输出目录设为默认值"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}" />
+
+                    <RadioButtons
+                        AutomationProperties.AutomationId="ImageConflictPolicy"
+                        Header="图片名称重复时"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
+                        SelectedIndex="{x:Bind ViewModel.ConflictPolicyIndex, Mode=TwoWay}">
+                        <x:String>覆盖已有文件</x:String>
+                        <x:String>添加 _1、_2 等后缀</x:String>
+                    </RadioButtons>
+                    <Button
+                        AutomationProperties.AutomationId="SaveImageConflictDefaultButton"
+                        Click="SaveConflictDefault_Click"
+                        Content="将当前重名策略设为默认值"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal"  Spacing="12" Margin="0,10">
+                    <Button
+                           AutomationProperties.AutomationId="AddImageFilesButton"
+                           Click="AddFiles_Click"
+                           Content="添加图片"
+                           HorizontalAlignment="Stretch"
+                           IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}"
+                           Style="{StaticResource AccentButtonStyle}" />
+                    <Button
+                           AutomationProperties.AutomationId="RemoveImageFilesButton"
+                           Click="RemoveSelected_Click"
+                           Content="移除选中"
+                           HorizontalAlignment="Stretch"
+                           IsEnabled="{x:Bind ViewModel.CanRemoveFiles, Mode=OneWay}" />
+                    <Button
+                           Grid.Column="1"
+                           AutomationProperties.AutomationId="ClearImageFilesButton"
+                           Click="ClearFiles_Click"
+                           Content="清空列表"
+                           HorizontalAlignment="Stretch"
+                           IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}" />
+                    <Button
+                        AutomationProperties.AutomationId="StartImageProcessingButton"
+                        Click="StartProcessing_Click"
+                        Content="开始处理"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                    <Button
+                        AutomationProperties.AutomationId="CancelImageProcessingButton"
+                        Click="CancelProcessing_Click"
+                        Content="取消处理"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanCancel, Mode=OneWay}" />
+                </StackPanel>
+
+                <Border
+                    x:Name="FilePanel"
+                    Grid.Row="1"
+                    AllowDrop="True"
+                    AutomationProperties.AutomationId="ImageDropTarget"
+                    Background="Transparent"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{ThemeResource ControlCornerRadius}"
+                    DragOver="Files_DragOver"
+                    Drop="Files_Drop">
+                    <Grid>
+                        <ListView
+                            x:Name="FileList"
+                            Grid.Row="0"
+                            AutomationProperties.AutomationId="ImageFileList"
+                            IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}"
+                            ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
+                            KeyDown="FileList_KeyDown"
+                            SelectionChanged="FileList_SelectionChanged"
+                            SelectionMode="Multiple">
+                            <ListView.Header>
+                                <Grid
+                                        Padding="12,10"
+                                        ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="220" />
+                                        <ColumnDefinition Width="5*" />
+                                        <ColumnDefinition Width="5*" />
+                                        <ColumnDefinition Width="180" />
+                                        <ColumnDefinition Width="140" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Text="文件名" />
+                                    <TextBlock
+                                            Grid.Column="1"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="路径" />
+                                    <TextBlock
+                                            Grid.Column="2"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="输出" />
+                                    <TextBlock
+                                            Grid.Column="3"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="状态" />
+                                    <TextBlock
+                                            Grid.Column="4"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="进度" />
+                                </Grid>
+                            </ListView.Header>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:ImageFileItem">
+
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="220" />
+                                            <ColumnDefinition Width="5*" />
+                                            <ColumnDefinition Width="5*" />
+                                            <ColumnDefinition Width="180" />
+                                            <ColumnDefinition Width="140" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock
+                                            AutomationProperties.Name="{x:Bind FileName, Mode=OneWay}"
+                                            Text="{x:Bind FileName, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTipService.ToolTip="{x:Bind FileName, Mode=OneWay}" />
+
+                                        <TextBlock Grid.Column="1"
+                                                Text="{x:Bind FilePath, Mode=OneWay}"
+                                                TextTrimming="CharacterEllipsis"
+                                                ToolTipService.ToolTip="{x:Bind FilePath, Mode=OneWay}" />
+
+                                        <TextBlock Grid.Column="2"
+                                                Opacity="0.7"
+                                                Text="{x:Bind OutputPath, Mode=OneWay}"
+                                                TextTrimming="CharacterEllipsis"
+                                                ToolTipService.ToolTip="{x:Bind OutputPath, Mode=OneWay}" />
+
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            Text="{x:Bind Status, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTipService.ToolTip="{x:Bind ErrorMessage, Mode=OneWay}" />
+
+                                        <ProgressBar
+                                            Grid.Column="4"
+                                            Height="6"
+                                            VerticalAlignment="Center"
+                                            IsIndeterminate="{x:Bind IsIndeterminate, Mode=OneWay}"
+                                            Maximum="100"
+                                            Minimum="0"
+                                            Value="{x:Bind Progress, Mode=OneWay}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <StackPanel
+                            Grid.Row="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsHitTestVisible="False"
+                            Spacing="8"
+                            Visibility="{x:Bind local:ImageProcessingPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
+                            <FontIcon
+                                FontSize="36"
+                                Glyph="&#xEB9F;"
+                                Opacity="0.65" />
+                            <TextBlock Text="添加图片，或将图片拖放到这里" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Opacity="0.65"
+                                Text="支持 JPG、JPEG、PNG" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Spacing="8">
+            <ProgressBar
+                AutomationProperties.AutomationId="ImageOverallProgress"
+                Maximum="100"
+                Minimum="0"
+                Value="{x:Bind ViewModel.OverallProgress, Mode=OneWay}" />
+            <InfoBar
+                AutomationProperties.AutomationId="ImageBatchStatus"
+                IsClosable="True"
+                IsOpen="{x:Bind ViewModel.IsBatchStatusOpen, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.BatchStatus, Mode=OneWay}"
+                Severity="{x:Bind local:ImageProcessingPage.ToInfoBarSeverity(ViewModel.BatchSeverity), Mode=OneWay}" />
+        </StackPanel>
+    </Grid>
+</Page>

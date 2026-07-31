@@ -7,7 +7,7 @@
     xmlns:local="using:BigDvToolBox_App"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="BigDvToolBox.App"    
+    Title="BigDvToolBox"
     mc:Ignorable="d">
     <Window.SystemBackdrop>
         <MicaBackdrop Kind="Base"/>
@@ -21,26 +21,12 @@
 
         <TitleBar
             x:Name="AppTitleBar"
-            Title="BigDvToolBox.App"
+            Title="BigDvToolBox"
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="TitleBar_PaneToggleRequested">
             <TitleBar.IconSource>
-                <ImageIconSource ImageSource="Assets/WPFGallery.ico" />
+                <ImageIconSource ImageSource="Assets/BigDvToolBoxIcon.ico" />
             </TitleBar.IconSource>
-            <TitleBar.Content>
-                <AutoSuggestBox
-                        Width="360"
-                        VerticalAlignment="Center"
-                        PlaceholderText="Search.."
-                        QueryIcon="Find" />
-            </TitleBar.Content>
-            <TitleBar.RightHeader>
-                <PersonPicture
-                        Width="30"
-                        Height="30"
-                        Initials="JD" />
-            </TitleBar.RightHeader>
-
         </TitleBar>
 
         <NavigationView

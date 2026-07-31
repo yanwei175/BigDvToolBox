@@ -9,6 +9,13 @@ internal enum RenameMode
     AnchorText,
 }
 
+internal enum OcrSegmentationMode
+{
+    Auto,
+    SingleLine,
+    SingleWord,
+}
+
 internal readonly record struct NormalizedOcrRegion(double X, double Y, double Width, double Height)
 {
     public bool IsValid => Width > 0 && Height > 0;
@@ -31,7 +38,12 @@ internal readonly record struct NormalizedOcrRegion(double X, double Y, double W
     }
 }
 
-internal sealed record RenderedDocument(byte[] PngBytes, uint PixelWidth, uint PixelHeight);
+internal sealed record RenderedDocument(
+    string SourcePath,
+    byte[] PngBytes,
+    uint PixelWidth,
+    uint PixelHeight,
+    int PdfDpi);
 
 public partial class RenamePreviewItem : ObservableObject
 {

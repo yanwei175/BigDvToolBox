@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="BigDvToolBox_App.Features.PdfOutlineFonts.PdfOutlineFontsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:BigDvToolBox_App.Features.PdfOutlineFonts"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Loaded="Page_Loaded"
+    Unloaded="Page_Unloaded"
+    mc:Ignorable="d">
+
+    <Grid Padding="20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        
+        <Grid Grid.Row="0" ColumnSpacing="16" >
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel  Orientation="Vertical"  Spacing="12" Margin="0,10">
+                <StackPanel Orientation="Horizontal"  Spacing="12">
+                    <Button
+                        AutomationProperties.AutomationId="AddPdfOutlineFilesButton"
+                        Click="AddFiles_Click"
+                        Content="添加 PDF 文件"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                    <Button
+                            AutomationProperties.AutomationId="RemovePdfOutlineFilesButton"
+                            Click="RemoveSelected_Click"
+                            Content="移除选中"
+                            HorizontalAlignment="Stretch"
+                            IsEnabled="{x:Bind ViewModel.CanRemoveFiles, Mode=OneWay}" />
+                    <Button
+                            AutomationProperties.AutomationId="ClearPdfOutlineFilesButton"
+                            Click="ClearFiles_Click"
+                            Content="清空列表"
+                            HorizontalAlignment="Stretch"
+                            IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}" />
+
+                    <TextBlock Text="输出目录" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                               VerticalAlignment="Center"/>
+
+                    <TextBox  VerticalAlignment="Center"
+                             Width="520"
+                             AutomationProperties.AutomationId="PdfOutlineOutputDirectory"
+                             IsReadOnly="True"
+                             Text="{x:Bind ViewModel.OutputDirectoryDisplay, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+
+                    <Button  Style="{StaticResource DefaultButtonStyle}"
+                            AutomationProperties.AutomationId="ChoosePdfOutlineOutputDirectoryButton"
+                            Click="ChooseOutputDirectory_Click"
+                            Content="选择目录"
+                            HorizontalAlignment="Stretch"
+                            IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}" />
+                    <Button 
+                            AutomationProperties.AutomationId="ResetPdfOutlineOutputDirectoryButton"
+                            Click="ResetOutputDirectory_Click"
+                            Content="使用源目录"
+                            HorizontalAlignment="Stretch"
+                            IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}" />
+                    
+                    <Button
+                        AutomationProperties.AutomationId="StartPdfOutlineConversionButton"
+                        Click="StartConversion_Click"
+                        Content="开始转换"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                    <Button
+                        AutomationProperties.AutomationId="CancelPdfOutlineConversionButton"
+                        Click="CancelConversion_Click"
+                        Content="取消转换"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanCancel, Mode=OneWay}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal"  Spacing="12" 
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Stretch">
+
+
+                    <TextBlock Text="并发任务数" Style="{StaticResource BodyStrongTextBlockStyle}" 
+                                           VerticalAlignment="Center"/>
+
+                    <ComboBox VerticalAlignment="Center"
+                                            AutomationProperties.AutomationId="PdfOutlineThreadCount"
+                                            IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
+                                            ItemsSource="{x:Bind ViewModel.ThreadCounts, Mode=OneWay}"
+                                            SelectedItem="{x:Bind ViewModel.SelectedThreadCount, Mode=TwoWay}" />
+                    
+                    <RadioButtons MaxColumns="2" AutomationProperties.AutomationId="PdfOutlineConvertMode"
+                                  IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
+                                  SelectedIndex="{x:Bind ViewModel.ConvertModeIndex, Mode=TwoWay}">
+                        <x:String>矢量转曲 PDF</x:String>
+                        <x:String>整页图片 PDF</x:String>
+                    </RadioButtons>
+
+                    <TextBlock Text="DPI:" Style="{StaticResource  BodyStrongTextBlockStyle}"
+                                           VerticalAlignment="Center"/>
+
+                    <ComboBox VerticalAlignment="Center"
+                                        AutomationProperties.AutomationId="PdfOutlineDpi"
+                                        IsEnabled="{x:Bind ViewModel.CanConfigureImageMode, Mode=OneWay}"
+                                        ItemsSource="{x:Bind ViewModel.DpiOptions, Mode=OneWay}"
+                                        SelectedItem="{x:Bind ViewModel.SelectedDpi, Mode=TwoWay}" />
+                </StackPanel>
+
+            </StackPanel>
+
+
+            <Border
+                    x:Name="FilePanel"
+                    Grid.Row="1"
+                    AllowDrop="True"
+                    AutomationProperties.AutomationId="PdfOutlineDropTarget"
+                    Background="Transparent"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{ThemeResource ControlCornerRadius}"
+                    DragOver="Files_DragOver"
+                    Drop="Files_Drop">
+                <Grid>
+                    <ListView
+                            x:Name="FileList"
+                            Grid.Row="0"
+                            AutomationProperties.AutomationId="PdfOutlineFileList"
+                            IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}"
+                            ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
+                            KeyDown="FileList_KeyDown"
+                            SelectionChanged="FileList_SelectionChanged"
+                            SelectionMode="Multiple">
+                        <ListView.Header>
+                            <Grid
+                                Padding="12,10"
+                                ColumnSpacing="12">
+                               <Grid.ColumnDefinitions>
+                                   <ColumnDefinition Width="220" />
+                                   <ColumnDefinition Width="*" />
+                                   <ColumnDefinition Width="110" />
+                                   <ColumnDefinition Width="140" />
+                               </Grid.ColumnDefinitions>
+
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="文件名" />
+                               <TextBlock
+                                    Grid.Column="1"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="完整路径" />
+                                
+                                <TextBlock
+                                    Grid.Column="2"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="状态" />
+                                
+                                 <TextBlock
+                                    Grid.Column="3"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="进度" />
+                                
+                            </Grid>
+                        </ListView.Header>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:PdfFileItem">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="220" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="140" />
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <TextBlock
+                                            AutomationProperties.Name="{x:Bind FileName, Mode=OneWay}"
+                                            Text="{x:Bind FileName, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTipService.ToolTip="{x:Bind FileName, Mode=OneWay}" />
+                                    
+                                    <TextBlock
+                                            Grid.Column="1"
+                                            Text="{x:Bind FilePath, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTipService.ToolTip="{x:Bind FilePath, Mode=OneWay}" />
+                                    
+                                    <TextBlock
+                                            Grid.Column="2"
+                                            Text="{x:Bind Status, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTipService.ToolTip="{x:Bind ErrorMessage, Mode=OneWay}" />
+                                    
+                                    <ProgressBar
+                                            Grid.Column="3"
+                                            Height="6"
+                                            VerticalAlignment="Center"
+                                            IsIndeterminate="{x:Bind IsIndeterminate, Mode=OneWay}"
+                                            Maximum="100"
+                                            Minimum="0"
+                                            Value="{x:Bind Progress, Mode=OneWay}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <StackPanel
+                            Grid.Row="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsHitTestVisible="False"
+                            Spacing="8"
+                            Visibility="{x:Bind local:PdfOutlineFontsPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
+                        <FontIcon
+                                FontSize="36"
+                                Glyph="&#xE8E5;"
+                                Opacity="0.65" />
+                        <TextBlock
+                                HorizontalAlignment="Center"
+                                Style="{StaticResource SubtitleTextBlockStyle}"
+                                Text="拖放 PDF 到这里" />
+                        <TextBlock
+                                HorizontalAlignment="Center"
+                                Opacity="0.7"
+                                Text="也可以使用左侧的“添加 PDF 文件”"
+                                TextAlignment="Center" />
+                    </StackPanel>
+                    
+                </Grid>
+            </Border>
+
+        </Grid>
+
+
+        <StackPanel Grid.Row="1" Spacing="8">
+            
+            <ProgressBar
+                AutomationProperties.AutomationId="PdfOutlineOverallProgress"
+                Maximum="100"
+                Minimum="0"
+                Value="{x:Bind ViewModel.OverallProgress, Mode=OneWay}" />
+            
+            <InfoBar
+                AutomationProperties.AutomationId="PdfOutlineBatchStatus"
+                IsClosable="True"
+                IsOpen="{x:Bind ViewModel.IsBatchStatusOpen, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.BatchStatus, Mode=OneWay}"
+                Severity="{x:Bind local:PdfOutlineFontsPage.ToInfoBarSeverity(ViewModel.BatchSeverity), Mode=OneWay}" />
+            
+            <InfoBar
+                AutomationProperties.AutomationId="PdfOutlinePlatformInfo"
+                IsClosable="False"
+                IsOpen="{x:Bind local:PdfOutlineFontsPage.Not(ViewModel.IsPlatformSupported), Mode=OneWay}"
+                Message="{x:Bind ViewModel.PlatformMessage, Mode=OneWay}"
+                Severity="Warning"
+                Title="当前架构不支持 PDF 转曲" />
+            
+            <InfoBar
+                AutomationProperties.AutomationId="PdfOutlineGhostscriptInfo"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsPlatformSupported, Mode=OneWay}"
+                Message="{x:Bind ViewModel.GhostscriptStatus, Mode=OneWay}"
+                Severity="{x:Bind local:PdfOutlineFontsPage.ToInfoBarSeverity(ViewModel.GhostscriptSeverity), Mode=OneWay}"
+                Title="Ghostscript" />
+            
+        </StackPanel>
+    </Grid>
+</Page>

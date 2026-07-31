@@ -10,28 +10,13 @@
 
     <Grid Padding="16" RowSpacing="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Spacing="8">
-            <InfoBar
-                AutomationProperties.AutomationId="RenameByOcrUnsupportedInfo"
-                IsClosable="False"
-                IsOpen="{x:Bind ViewModel.IsUnsupported, Mode=OneWay}"
-                Message="当前为 ARM64 进程。Tesseract 原生组件仅支持 x86/x64，因此此页面的 OCR 操作已禁用。"
-                Severity="Warning"
-                Title="当前平台不支持 OCR" />
-            <InfoBar
-                AutomationProperties.AutomationId="RenameByOcrStatus"
-                IsClosable="False"
-                IsOpen="True"
-                Message="{x:Bind ViewModel.ProgressText, Mode=OneWay}"
-                Severity="Informational" />
-        </StackPanel>
 
-        <Grid Grid.Row="1" ColumnSpacing="16">
+        <Grid Grid.Row="0" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="340" />
                 <ColumnDefinition Width="*" />
@@ -48,12 +33,7 @@
                         Text="从 PDF 或图片中识别文字，先检查目标名称，再批量重命名。"
                         TextWrapping="Wrap" />
 
-                    <Button Style="{StaticResource AccentButtonStyle}"
-                        AutomationProperties.AutomationId="SelectOcrFolderButton"
-                        Click="SelectFolder_Click"
-                        Content="选择文件夹"
-                        HorizontalAlignment="Stretch"
-                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}" />
+
                     <TextBox
                         AutomationProperties.AutomationId="SelectedOcrFolder"
                         Header="当前文件夹"
@@ -166,6 +146,22 @@
                             ValueChanged="RegionNumberBox_ValueChanged" />
                     </Grid>
 
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal"  Spacing="12" Margin="0,10">
+                    <Button Style="{StaticResource AccentButtonStyle}"
+                        AutomationProperties.AutomationId="SelectOcrFolderButton"
+                        Click="SelectFolder_Click"
+                        Content="选择文件夹"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}" />
                     <Button Style="{StaticResource AccentButtonStyle}"
                         AutomationProperties.AutomationId="GenerateRenamePreviewButton"
                         Click="GeneratePreview_Click"
@@ -191,128 +187,163 @@
                         HorizontalAlignment="Stretch"
                         IsEnabled="{x:Bind ViewModel.CanCancel, Mode=OneWay}" />
                 </StackPanel>
-            </ScrollViewer>
 
-            <Grid Grid.Column="1" RowSpacing="8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <SelectorBar
-                    x:Name="ContentSelector"
-                    AutomationProperties.AutomationId="RenameByOcrContentSelector"
-                    SelectionChanged="ContentSelector_SelectionChanged">
-                    <SelectorBarItem Text="文件预览" />
-                    <SelectorBarItem Text="重命名结果" />
-                </SelectorBar>
-
-                <Border
-                    x:Name="PreviewPanel"
-                    Grid.Row="1"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8">
-                    <ScrollViewer
-                        x:Name="PreviewScrollViewer"
-                        AutomationProperties.AutomationId="OcrImagePreview"
-                        HorizontalScrollBarVisibility="Auto"
-                        HorizontalScrollMode="Enabled"
-                        IsTabStop="True"
-                        MaxZoomFactor="8"
-                        MinZoomFactor="0.1"
-                        VerticalScrollBarVisibility="Auto"
-                        VerticalScrollMode="Enabled"
-                        ZoomMode="Enabled">
-                        <Grid
-                            Width="{x:Bind ViewModel.PreviewPixelWidth, Mode=OneWay}"
-                            Height="{x:Bind ViewModel.PreviewPixelHeight, Mode=OneWay}">
-                            <Image
-                                x:Name="PreviewImage"
-                                AutomationProperties.Name="当前 OCR 文件预览"
-                                Stretch="Fill" />
-                            <Canvas
-                                x:Name="SelectionCanvas"
-                                AutomationProperties.AutomationId="OcrRegionSelectionCanvas"
-                                AutomationProperties.Name="拖动选择 OCR 区域，也可以使用左侧坐标输入框"
-                                Background="Transparent"
-                                IsHitTestVisible="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
-                                PointerCanceled="SelectionCanvas_PointerCanceled"
-                                PointerMoved="SelectionCanvas_PointerMoved"
-                                PointerPressed="SelectionCanvas_PointerPressed"
-                                PointerReleased="SelectionCanvas_PointerReleased">
-                                <Rectangle
-                                    x:Name="SelectionRectangle"
-                                    Canvas.ZIndex="1"
-                                    Fill="{ThemeResource AccentFillColorSecondaryBrush}"
-                                    IsHitTestVisible="False"
-                                    Stroke="{ThemeResource SystemFillColorCriticalBrush}"
-                                    StrokeThickness="3"
-                                    Visibility="Collapsed" />
-                            </Canvas>
-                        </Grid>
-                    </ScrollViewer>
-                </Border>
-
-                <Grid
-                    x:Name="ResultsPanel"
-                    Grid.Row="1"
-                    Visibility="Collapsed">
+                <Grid Grid.Row="1" RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
+                    <SelectorBar
+                            x:Name="ContentSelector"
+                            AutomationProperties.AutomationId="RenameByOcrContentSelector"
+                            SelectionChanged="ContentSelector_SelectionChanged">
+                        <SelectorBarItem Text="文件预览" />
+                        <SelectorBarItem Text="重命名结果" />
+                    </SelectorBar>
+
+                    <Border
+                            x:Name="PreviewPanel"
+                            Grid.Row="1"
+                            Background="Transparent"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                        <ScrollViewer
+                                    x:Name="PreviewScrollViewer"
+                                    AutomationProperties.AutomationId="OcrImagePreview"
+                                    HorizontalScrollBarVisibility="Auto"
+                                    HorizontalScrollMode="Enabled"
+                                    IsTabStop="True"
+                                    MaxZoomFactor="8"
+                                    MinZoomFactor="0.1"
+                                    VerticalScrollBarVisibility="Auto"
+                                    VerticalScrollMode="Enabled"
+                                    ZoomMode="Enabled">
+                            <Grid
+                                Width="{x:Bind ViewModel.PreviewPixelWidth, Mode=OneWay}"
+                                Height="{x:Bind ViewModel.PreviewPixelHeight, Mode=OneWay}">
+                                <Image
+                                    x:Name="PreviewImage"
+                                    AutomationProperties.Name="当前 OCR 文件预览"
+                                    Stretch="Fill" />
+                                <Canvas
+                                        x:Name="SelectionCanvas"
+                                        AutomationProperties.AutomationId="OcrRegionSelectionCanvas"
+                                        AutomationProperties.Name="拖动选择 OCR 区域，也可以使用左侧坐标输入框"
+                                        Background="Transparent"
+                                        IsHitTestVisible="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
+                                        PointerCanceled="SelectionCanvas_PointerCanceled"
+                                        PointerMoved="SelectionCanvas_PointerMoved"
+                                        PointerPressed="SelectionCanvas_PointerPressed"
+                                        PointerReleased="SelectionCanvas_PointerReleased">
+                                    <Rectangle
+                                            x:Name="SelectionRectangle"
+                                            Canvas.ZIndex="1"
+                                            Fill="{ThemeResource AccentFillColorSecondaryBrush}"
+                                            IsHitTestVisible="False"
+                                            Stroke="{ThemeResource SystemFillColorCriticalBrush}"
+                                            StrokeThickness="3"
+                                            Visibility="Collapsed" />
+                                </Canvas>
+                            </Grid>
+                        </ScrollViewer>
+                    </Border>
+
                     <Grid
-                        Padding="12,8"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="200" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="220" />
-                            <ColumnDefinition Width="120" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock FontWeight="SemiBold" Text="原文件名" />
-                        <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="OCR 文本 / 错误" />
-                        <TextBlock Grid.Column="2" FontWeight="SemiBold" Text="目标文件名" />
-                        <TextBlock Grid.Column="3" FontWeight="SemiBold" Text="状态" />
-                    </Grid>
-                    <ListView
+                        x:Name="ResultsPanel"
                         Grid.Row="1"
-                        AutomationProperties.AutomationId="OcrRenameResults"
-                        ItemsSource="{x:Bind ViewModel.Results, Mode=OneWay}">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="local:RenamePreviewItem">
-                                <Grid Padding="12,8" ColumnSpacing="12">
+                        Visibility="Collapsed">
+                        <ListView
+                                Grid.Row="0"
+                                AutomationProperties.AutomationId="OcrRenameResults"
+                                ItemsSource="{x:Bind ViewModel.Results, Mode=OneWay}">
+                            <ListView.Header>
+                                <Grid
+                                    Padding="12,8"
+                                    Background="Transparent"
+                                    ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="220" />
+                                        <ColumnDefinition Width="240" />
+                                        <ColumnDefinition Width="5*" />
+                                        <ColumnDefinition Width="5*" />
+                                        <ColumnDefinition Width="240" />
                                         <ColumnDefinition Width="120" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{x:Bind OriginalName, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{x:Bind OcrText, Mode=OneWay}" TextWrapping="Wrap" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                            Text="{x:Bind Error, Mode=OneWay}"
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="2" Text="{x:Bind TargetName, Mode=OneWay}" TextWrapping="Wrap" />
-                                    <TextBlock Grid.Column="3" Text="{x:Bind Status, Mode=OneWay}" TextWrapping="Wrap" />
+                                    <TextBlock FontWeight="SemiBold" 
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Text="原文件名" />
+                                    <TextBlock Grid.Column="1"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                FontWeight="SemiBold" Text="OCR 文本" />
+                                    <TextBlock Grid.Column="2"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                FontWeight="SemiBold" Text="错误" />
+                                    <TextBlock Grid.Column="3"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                FontWeight="SemiBold" Text="目标文件名" />
+                                    <TextBlock Grid.Column="4"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                FontWeight="SemiBold" Text="状态" />
                                 </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                            </ListView.Header>
+
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:RenamePreviewItem">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="240" />
+                                            <ColumnDefinition Width="5*" />
+                                            <ColumnDefinition Width="5*" />
+                                            <ColumnDefinition Width="240" />
+                                            <ColumnDefinition Width="120" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Text="{x:Bind OriginalName, Mode=OneWay}" 
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1"  
+                                                   Text="{x:Bind OcrText, Mode=OneWay}" 
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="2" 
+                                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                   Text="{x:Bind Error, Mode=OneWay}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="3" 
+                                                   Text="{x:Bind TargetName, Mode=OneWay}" 
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="4" 
+                                                   Text="{x:Bind Status, Mode=OneWay}" 
+                                                   TextWrapping="Wrap"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
                 </Grid>
             </Grid>
+
         </Grid>
 
         <ProgressBar
-            Grid.Row="2"
+            Grid.Row="1"
             AutomationProperties.AutomationId="OcrBatchProgress"
             IsIndeterminate="{x:Bind ViewModel.IsProgressIndeterminate, Mode=OneWay}"
             Maximum="{x:Bind ViewModel.ProgressMaximum, Mode=OneWay}"
             Value="{x:Bind ViewModel.ProgressValue, Mode=OneWay}" />
+
+        <StackPanel Grid.Row="2" Spacing="8">
+            <InfoBar
+                AutomationProperties.AutomationId="RenameByOcrUnsupportedInfo"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsUnsupported, Mode=OneWay}"
+                Message="当前为 ARM64 进程。Tesseract 原生组件仅支持 x86/x64，因此此页面的 OCR 操作已禁用。"
+                Severity="Warning"
+                Title="当前平台不支持 OCR" />
+            <InfoBar
+                AutomationProperties.AutomationId="RenameByOcrStatus"
+                IsClosable="False"
+                IsOpen="True"
+                Message="{x:Bind ViewModel.ProgressText, Mode=OneWay}"
+                Severity="Informational" />
+        </StackPanel>
     </Grid>
 </Page>

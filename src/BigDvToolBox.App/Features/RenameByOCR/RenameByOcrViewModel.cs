@@ -7,6 +7,7 @@ namespace BigDvToolBox_App.Features.RenameByOCR;
 internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 {
     private readonly IDocumentRenderer _renderer;
+    private readonly Func<IOcrService>? _ocrServiceFactory;
     private CancellationTokenSource? _operationCancellation;
     private RenderedDocument? _currentDocument;
 
@@ -15,9 +16,12 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
     {
     }
 
-    internal RenameByOcrViewModel(IDocumentRenderer renderer)
+    internal RenameByOcrViewModel(
+        IDocumentRenderer renderer,
+        Func<IOcrService>? ocrServiceFactory = null)
     {
         _renderer = renderer;
+        _ocrServiceFactory = ocrServiceFactory;
         IsSupported = RuntimeInformation.ProcessArchitecture is Architecture.X64 or Architecture.X86;
     }
 
@@ -49,6 +53,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
         : $"{Status} ({ProgressValue:0}/{ProgressMaximum:0})";
 
     internal byte[]? CurrentPreviewBytes => _currentDocument?.PngBytes;
+    internal RenderedDocument? CurrentDocument => _currentDocument;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStart))]
@@ -146,28 +151,44 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
         await LoadCurrentPreviewAsync();
     }
 
-    public async Task LoadCurrentPreviewAsync()
+    public async Task<RenderedDocument?> LoadCurrentPreviewAsync()
     {
         if (!HasFiles)
         {
-            return;
+            return null;
         }
 
+        string path = CurrentFilePath;
+        int pdfDpi = PdfDpi;
         try
         {
-            Status = $"正在加载 {Path.GetFileName(CurrentFilePath)}…";
+            Status = $"正在加载 {Path.GetFileName(path)}…";
             HasError = false;
-            _currentDocument = await _renderer.RenderAsync(CurrentFilePath, PdfDpi, CancellationToken.None);
+            RenderedDocument document =
+                await _renderer.RenderAsync(path, pdfDpi, CancellationToken.None);
+
+            if (!path.Equals(CurrentFilePath, StringComparison.OrdinalIgnoreCase) ||
+                pdfDpi != PdfDpi)
+            {
+                return null;
+            }
+
+            _currentDocument = document;
             PreviewPixelWidth = _currentDocument.PixelWidth;
             PreviewPixelHeight = _currentDocument.PixelHeight;
             Status = CurrentFileDisplay;
             OnPropertyChanged(nameof(CurrentPreviewBytes));
+            OnPropertyChanged(nameof(CurrentDocument));
+            return _currentDocument;
         }
         catch (Exception exception)
         {
             _currentDocument = null;
             HasError = true;
             Status = $"预览加载失败：{exception.Message}";
+            OnPropertyChanged(nameof(CurrentPreviewBytes));
+            OnPropertyChanged(nameof(CurrentDocument));
+            return null;
         }
     }
 
@@ -196,11 +217,17 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
                 Status = $"正在识别 {Path.GetFileName(path)}";
                 try
                 {
-                    RenderedDocument document = await _renderer.RenderAsync(path, pdfDpi, token);
+                    RenderedDocument document =
+                        await GetOrRenderDocumentAsync(path, pdfDpi, token);
                     byte[] input = modeIndex == (int)RenameMode.FixedRegion
                         ? await _renderer.CropAsync(document, selectedRegion, token)
                         : document.PngBytes;
-                    string fullText = await ocr.RecognizeAsync(input, token);
+                    OcrSegmentationMode segmentationMode =
+                        modeIndex == (int)RenameMode.FixedRegion
+                            ? OcrSegmentationMode.SingleWord
+                            : OcrSegmentationMode.Auto;
+                    string fullText =
+                        await ocr.RecognizeAsync(input, token, segmentationMode);
                     if (string.IsNullOrWhiteSpace(fullText))
                     {
                         throw new InvalidDataException("OCR 未返回文本。");
@@ -398,6 +425,11 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 
     private IOcrService CreateOcrService()
     {
+        if (_ocrServiceFactory is not null)
+        {
+            return _ocrServiceFactory();
+        }
+
         if (!IsSupported)
         {
             throw new PlatformNotSupportedException("Rename By OCR 仅支持 x86 和 x64。");
@@ -409,6 +441,21 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
             "RenameByOCR",
             "tessdata");
         return new TesseractOcrService(tessdataPath);
+    }
+
+    private Task<RenderedDocument> GetOrRenderDocumentAsync(
+        string path,
+        int pdfDpi,
+        CancellationToken cancellationToken)
+    {
+        if (_currentDocument is not null &&
+            _currentDocument.SourcePath.Equals(path, StringComparison.OrdinalIgnoreCase) &&
+            _currentDocument.PdfDpi == pdfDpi)
+        {
+            return Task.FromResult(_currentDocument);
+        }
+
+        return _renderer.RenderAsync(path, pdfDpi, cancellationToken);
     }
 
     private async Task ReloadFolderAfterRenameAsync()

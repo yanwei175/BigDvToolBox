@@ -16,9 +16,9 @@
   <mp:PhoneIdentity PhoneProductId="3A66ED43-1B9C-4D52-B1D5-49940CE115AC" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>BigDvToolBox.App</DisplayName>
+    <DisplayName>BigDvToolBox</DisplayName>
     <PublisherDisplayName>BigBigBigDv</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
+    <Logo>Assets\BigDvToolBoxStoreLogo.png</Logo>
   </Properties>
 
   <Dependencies>
@@ -35,11 +35,11 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="BigDvToolBox.App"
-        Description="BigDvToolBox.App"
+        DisplayName="BigDvToolBox"
+        Description="BigDvToolBox 个人工具箱"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png">
+        Square150x150Logo="Assets\BigDvToolBoxSquare150x150Logo.png"
+        Square44x44Logo="Assets\BigDvToolBoxSquare44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
