@@ -184,14 +184,14 @@
                            Click="RemoveSelected_Click"
                            Content="移除选中"
                            HorizontalAlignment="Stretch"
-                           IsEnabled="{x:Bind ViewModel.CanRemoveFiles, Mode=OneWay}" />
+                           IsEnabled="{x:Bind ViewModel.CanStart, Mode=OneWay}" />
                     <Button
                            Grid.Column="1"
                            AutomationProperties.AutomationId="ClearImageFilesButton"
                            Click="ClearFiles_Click"
                            Content="清空列表"
                            HorizontalAlignment="Stretch"
-                           IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}" />
+                           IsEnabled="{x:Bind ViewModel.CanClearFiles, Mode=OneWay}" />
                     <Button
                         AutomationProperties.AutomationId="StartImageProcessingButton"
                         Click="StartProcessing_Click"
@@ -226,13 +226,13 @@
                             IsEnabled="{x:Bind ViewModel.CanEditFiles, Mode=OneWay}"
                             ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
                             KeyDown="FileList_KeyDown"
-                            SelectionChanged="FileList_SelectionChanged"
-                            SelectionMode="Multiple">
+                            SelectionMode="Single">
                             <ListView.Header>
                                 <Grid
                                         Padding="12,10"
                                         ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="56" />
                                         <ColumnDefinition Width="220" />
                                         <ColumnDefinition Width="5*" />
                                         <ColumnDefinition Width="5*" />
@@ -240,21 +240,24 @@
                                         <ColumnDefinition Width="140" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Text="处理" />
+                                    <TextBlock Grid.Column="1"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                Text="文件名" />
-                                    <TextBlock
-                                            Grid.Column="1"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="路径" />
                                     <TextBlock
                                             Grid.Column="2"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="输出" />
+                                            Text="路径" />
                                     <TextBlock
                                             Grid.Column="3"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="状态" />
+                                            Text="输出" />
                                     <TextBlock
                                             Grid.Column="4"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="状态" />
+                                    <TextBlock
+                                            Grid.Column="5"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Text="进度" />
                                 </Grid>
@@ -264,6 +267,7 @@
 
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
                                             <ColumnDefinition Width="220" />
                                             <ColumnDefinition Width="5*" />
                                             <ColumnDefinition Width="5*" />
@@ -271,31 +275,38 @@
                                             <ColumnDefinition Width="140" />
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock
+                                        <CheckBox
+                                            AutomationProperties.AutomationId="ImageProcessingSelectionCheckBox"
+                                            AutomationProperties.Name="{x:Bind ProcessingSelectionName, Mode=OneWay}"
+                                            Click="ProcessingCheckBox_Click"
+                                            IsChecked="{x:Bind IsSelectedForProcessing, Mode=TwoWay}"
+                                            VerticalAlignment="Center" />
+
+                                        <TextBlock Grid.Column="1"
                                             AutomationProperties.Name="{x:Bind FileName, Mode=OneWay}"
                                             Text="{x:Bind FileName, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis"
                                             ToolTipService.ToolTip="{x:Bind FileName, Mode=OneWay}" />
 
-                                        <TextBlock Grid.Column="1"
+                                        <TextBlock Grid.Column="2"
                                                 Text="{x:Bind FilePath, Mode=OneWay}"
                                                 TextTrimming="CharacterEllipsis"
                                                 ToolTipService.ToolTip="{x:Bind FilePath, Mode=OneWay}" />
 
-                                        <TextBlock Grid.Column="2"
+                                        <TextBlock Grid.Column="3"
                                                 Opacity="0.7"
                                                 Text="{x:Bind OutputPath, Mode=OneWay}"
                                                 TextTrimming="CharacterEllipsis"
                                                 ToolTipService.ToolTip="{x:Bind OutputPath, Mode=OneWay}" />
 
                                         <TextBlock
-                                            Grid.Column="3"
+                                            Grid.Column="4"
                                             Text="{x:Bind Status, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis"
                                             ToolTipService.ToolTip="{x:Bind ErrorMessage, Mode=OneWay}" />
 
                                         <ProgressBar
-                                            Grid.Column="4"
+                                            Grid.Column="5"
                                             Height="6"
                                             VerticalAlignment="Center"
                                             IsIndeterminate="{x:Bind IsIndeterminate, Mode=OneWay}"

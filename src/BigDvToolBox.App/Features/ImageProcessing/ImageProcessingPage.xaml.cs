@@ -47,10 +47,7 @@ public sealed partial class ImageProcessingPage : Page
         RemoveSelectedFiles();
 
     private void ClearFiles_Click(object sender, RoutedEventArgs e)
-    {
-        ViewModel.ClearFiles();
-        FileList.SelectedItems.Clear();
-    }
+        => ViewModel.ClearFiles();
 
     private async void ChooseOutputDirectory_Click(
         object sender,
@@ -98,7 +95,7 @@ public sealed partial class ImageProcessingPage : Page
                 XamlRoot = XamlRoot,
                 Title = "确认覆盖已有图片",
                 Content =
-                    $"将处理 {ViewModel.Files.Count} 张图片，输出到{ViewModel.OutputLocationSummary}。" +
+                    $"将处理 {ViewModel.SelectedForProcessingCount} 张已勾选图片，输出到{ViewModel.OutputLocationSummary}。" +
                     "同名文件会被覆盖，此操作无法撤销。",
                 PrimaryButtonText = "覆盖并开始",
                 CloseButtonText = "取消",
@@ -119,14 +116,12 @@ public sealed partial class ImageProcessingPage : Page
     private void Page_Unloaded(object sender, RoutedEventArgs e) =>
         ViewModel.Cancel();
 
-    private void FileList_SelectionChanged(
-        object sender,
-        SelectionChangedEventArgs e) =>
-        ViewModel.SelectedItemCount = FileList.SelectedItems.Count;
+    private void ProcessingCheckBox_Click(object sender, RoutedEventArgs e) =>
+        ViewModel.NotifyProcessingSelectionChanged();
 
     private void FileList_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Delete || !ViewModel.CanRemoveFiles)
+        if (e.Key != VirtualKey.Delete || !ViewModel.CanStart)
         {
             return;
         }
@@ -137,11 +132,10 @@ public sealed partial class ImageProcessingPage : Page
 
     private void RemoveSelectedFiles()
     {
-        ImageFileItem[] selected = FileList.SelectedItems
-            .OfType<ImageFileItem>()
+        ImageFileItem[] selected = ViewModel.Files
+            .Where(item => item.IsSelectedForProcessing)
             .ToArray();
         ViewModel.RemoveFiles(selected);
-        FileList.SelectedItems.Clear();
     }
 
     private void Files_DragOver(object sender, DragEventArgs e)

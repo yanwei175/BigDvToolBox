@@ -3,7 +3,9 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Windows.Storage.Pickers;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Windows.Storage;
 using Windows.Storage.Streams;
 
 namespace BigDvToolBox_App.Features.RenameByOCR;
@@ -12,6 +14,7 @@ public sealed partial class RenameByOcrPage : Page
 {
     private Point _selectionStart;
     private uint? _capturedPointerId;
+    private bool _isSelectingFolder;
 
     internal RenameByOcrViewModel ViewModel { get; } = new();
 
@@ -23,16 +26,96 @@ public sealed partial class RenameByOcrPage : Page
 
     private async void SelectFolder_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FolderPicker(XamlRoot.ContentIslandEnvironment.AppWindowId);
-        PickFolderResult? result = await picker.PickSingleFolderAsync();
-        if (result is null)
+        if (!ViewModel.CanConfigure || _isSelectingFolder)
         {
             return;
         }
 
-        await ViewModel.LoadFolderAsync(result.Path);
+        _isSelectingFolder = true;
+        try
+        {
+            var picker = new FolderPicker(XamlRoot.ContentIslandEnvironment.AppWindowId);
+            PickFolderResult? result = await picker.PickSingleFolderAsync();
+            if (result is null)
+            {
+                return;
+            }
+
+            await OpenFolderAsync(result.Path);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.ReportFolderInputError($"选择文件夹失败：{exception.Message}");
+        }
+        finally
+        {
+            _isSelectingFolder = false;
+        }
+    }
+
+    private void PreviewPanel_DragOver(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        bool canDrop = ViewModel.CanConfigure && !_isSelectingFolder &&
+            e.DataView.Contains(StandardDataFormats.StorageItems);
+        e.AcceptedOperation = canDrop ? DataPackageOperation.Copy : DataPackageOperation.None;
+        if (canDrop)
+        {
+            e.DragUIOverride.Caption = "加载一个文件夹中的 PDF 或图片";
+            e.DragUIOverride.IsCaptionVisible = true;
+            e.DragUIOverride.IsGlyphVisible = true;
+        }
+    }
+
+    private async void PreviewPanel_Drop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        e.AcceptedOperation = DataPackageOperation.None;
+        if (!ViewModel.CanConfigure || _isSelectingFolder ||
+            !e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            return;
+        }
+
+        var deferral = e.GetDeferral();
+        _isSelectingFolder = true;
+        try
+        {
+            IReadOnlyList<IStorageItem> items = await e.DataView.GetStorageItemsAsync();
+            if (items.Count != 1 || items[0] is not StorageFolder folder ||
+                string.IsNullOrWhiteSpace(folder.Path))
+            {
+                ViewModel.ReportFolderInputError("请每次拖入一个本地文件夹，不支持直接拖入文件或多个文件夹。");
+                return;
+            }
+
+            // Reading the drag data is asynchronous; recheck before replacing the current folder.
+            if (!ViewModel.CanConfigure)
+            {
+                return;
+            }
+
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            await OpenFolderAsync(folder.Path);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.ReportFolderInputError($"无法读取拖入的文件夹：{exception.Message}");
+        }
+        finally
+        {
+            _isSelectingFolder = false;
+            deferral.Complete();
+        }
+    }
+
+    private async Task OpenFolderAsync(string folderPath)
+    {
+        await ViewModel.LoadFolderAsync(folderPath);
         await RefreshPreviewImageAsync();
         UpdateSelectionRectangle();
+        ContentSelector.SelectedItem = ContentSelector.Items[0];
+        ShowSelectedPanel();
     }
 
     private async void PreviousFile_Click(object sender, RoutedEventArgs e)

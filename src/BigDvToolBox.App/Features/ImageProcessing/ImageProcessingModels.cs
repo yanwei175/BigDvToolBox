@@ -62,6 +62,11 @@ internal sealed partial class ImageFileItem : ObservableObject
 
     internal string FileName => Path.GetFileName(FilePath);
 
+    internal string ProcessingSelectionName => $"处理 {FileName}";
+
+    [ObservableProperty]
+    public partial bool IsSelectedForProcessing { get; set; } = true;
+
     [ObservableProperty]
     public partial ImageFileState State { get; set; }
 

@@ -107,6 +107,8 @@ public sealed class ImageProcessingTests
 
             Assert.AreEqual(1, added);
             Assert.HasCount(1, viewModel.Files);
+            Assert.IsTrue(viewModel.Files[0].IsSelectedForProcessing);
+            Assert.AreEqual(1, viewModel.SelectedForProcessingCount);
             Assert.AreEqual(ImageStatusSeverity.Warning, viewModel.BatchSeverity);
         }
         finally
@@ -143,6 +145,102 @@ public sealed class ImageProcessingTests
                 ImageFileState.Completed,
                 viewModel.Files[0].State);
             Assert.AreEqual(ImageFileState.Failed, viewModel.Files[1].State);
+            Assert.IsTrue(viewModel.Files.All(
+                item => !item.IsSelectedForProcessing));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+
+    [TestMethod]
+    public async Task BatchProcessing_OnlyProcessesCheckedFiles()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string checkedFile = Path.Combine(folder, "checked.jpg");
+            string uncheckedFile = Path.Combine(folder, "unchecked.png");
+            File.WriteAllText(checkedFile, "checked");
+            File.WriteAllText(uncheckedFile, "unchecked");
+            var service = new FakeResizeService();
+            var viewModel = new ImageProcessingViewModel(
+                service,
+                new MemorySettingsStore());
+            viewModel.AddFiles([checkedFile, uncheckedFile]);
+            viewModel.Files[1].IsSelectedForProcessing = false;
+            viewModel.NotifyProcessingSelectionChanged();
+
+            ImageBatchSummary summary =
+                await viewModel.StartProcessingAsync();
+
+            Assert.AreEqual(1, summary.Total);
+            Assert.AreEqual(1, summary.Succeeded);
+            CollectionAssert.AreEqual(
+                new[] { checkedFile },
+                service.ProcessedPaths);
+            Assert.AreEqual(
+                ImageFileState.Waiting,
+                viewModel.Files[1].State);
+            Assert.IsFalse(viewModel.Files[0].IsSelectedForProcessing);
+            Assert.IsFalse(viewModel.CanStart);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public void RemoveFiles_RemovesCheckedItemsWithoutListSelection()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string checkedFile = Path.Combine(folder, "checked.jpg");
+            string uncheckedFile = Path.Combine(folder, "unchecked.png");
+            File.WriteAllText(checkedFile, "checked");
+            File.WriteAllText(uncheckedFile, "unchecked");
+            var viewModel = new ImageProcessingViewModel(
+                new FakeResizeService(),
+                new MemorySettingsStore());
+            viewModel.AddFiles([checkedFile, uncheckedFile]);
+            viewModel.Files[1].IsSelectedForProcessing = false;
+            viewModel.NotifyProcessingSelectionChanged();
+
+            viewModel.RemoveFiles(viewModel.Files.Where(
+                item => item.IsSelectedForProcessing));
+
+            Assert.HasCount(1, viewModel.Files);
+            Assert.AreEqual(uncheckedFile, viewModel.Files[0].FilePath);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public void CanClearFiles_TracksWhetherTheListHasImages()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string image = Path.Combine(folder, "image.jpg");
+            File.WriteAllText(image, "image");
+            var viewModel = new ImageProcessingViewModel(
+                new FakeResizeService(),
+                new MemorySettingsStore());
+
+            Assert.IsFalse(viewModel.CanClearFiles);
+
+            viewModel.AddFiles([image]);
+            Assert.IsTrue(viewModel.CanClearFiles);
+
+            viewModel.ClearFiles();
+            Assert.IsFalse(viewModel.CanClearFiles);
         }
         finally
         {
@@ -242,6 +340,8 @@ public sealed class ImageProcessingTests
     {
         internal ImageResizeOptions LastOptions { get; private set; }
 
+        internal List<string> ProcessedPaths { get; } = [];
+
         public Task<ImageResizeResult> ResizeAsync(
             string inputPath,
             string outputPath,
@@ -250,6 +350,7 @@ public sealed class ImageProcessingTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             LastOptions = options;
+            ProcessedPaths.Add(inputPath);
             return string.Equals(
                 inputPath,
                 failingPath,

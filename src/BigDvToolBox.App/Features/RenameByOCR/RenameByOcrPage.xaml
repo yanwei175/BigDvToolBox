@@ -204,11 +204,28 @@
                     <Border
                             x:Name="PreviewPanel"
                             Grid.Row="1"
+                            AllowDrop="True"
+                            AutomationProperties.AutomationId="OcrFolderDropTarget"
+                            AutomationProperties.Name="文件预览，可拖入一个文件夹"
+                            DragOver="PreviewPanel_DragOver"
+                            Drop="PreviewPanel_Drop"
                             Background="Transparent"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8">
+                        <Grid RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock
+                                Margin="12,8"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                IsHitTestVisible="False"
+                                Text="将一个文件夹拖到此处，加载其中的 PDF 或图片；也可以点击“选择文件夹”。"
+                                TextWrapping="Wrap" />
                         <ScrollViewer
+                                    Grid.Row="1"
                                     x:Name="PreviewScrollViewer"
                                     AutomationProperties.AutomationId="OcrImagePreview"
                                     HorizontalScrollBarVisibility="Auto"
@@ -247,6 +264,7 @@
                                 </Canvas>
                             </Grid>
                         </ScrollViewer>
+                        </Grid>
                     </Border>
 
                     <Grid

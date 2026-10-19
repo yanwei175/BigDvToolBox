@@ -49,18 +49,21 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
 
     internal bool CanEditFiles => !IsProcessing;
 
-    internal bool CanRemoveFiles => !IsProcessing && SelectedItemCount > 0;
+    internal bool CanClearFiles => !IsProcessing && Files.Count > 0;
 
     internal bool CanConfigure => !IsProcessing;
 
     internal bool CanStart =>
         !IsProcessing &&
-        Files.Count > 0 &&
+        SelectedForProcessingCount > 0 &&
         TargetLongEdge > 0;
 
     internal bool CanCancel => IsProcessing;
 
     internal bool IsEmpty => Files.Count == 0;
+
+    internal int SelectedForProcessingCount =>
+        Files.Count(item => item.IsSelectedForProcessing);
 
     internal bool CanUseJpegQuality =>
         !IsProcessing &&
@@ -106,9 +109,6 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
 
     [ObservableProperty]
     public partial int ConflictPolicyIndex { get; set; } = 1;
-
-    [ObservableProperty]
-    public partial int SelectedItemCount { get; set; }
 
     [ObservableProperty]
     public partial bool IsProcessing { get; set; }
@@ -168,6 +168,12 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
         return added;
     }
 
+    internal void NotifyProcessingSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedForProcessingCount));
+        OnPropertyChanged(nameof(CanStart));
+    }
+
     internal void RemoveFiles(IEnumerable<ImageFileItem> selectedFiles)
     {
         if (!CanEditFiles)
@@ -180,7 +186,6 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
             Files.Remove(item);
         }
 
-        SelectedItemCount = 0;
         BatchStatus = Files.Count == 0
             ? "请选择或拖放图片。"
             : $"列表中剩余 {Files.Count} 张图片。";
@@ -197,7 +202,6 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
         }
 
         Files.Clear();
-        SelectedItemCount = 0;
         OverallProgress = 0;
         BatchStatus = "请选择或拖放图片。";
         BatchSeverity = ImageStatusSeverity.Informational;
@@ -243,7 +247,10 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
             return default;
         }
 
-        ImageFileItem[] files = [.. Files];
+        ImageFileItem[] files =
+        [
+            .. Files.Where(item => item.IsSelectedForProcessing),
+        ];
         foreach (ImageFileItem file in files)
         {
             file.SetWaiting();
@@ -323,9 +330,15 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
         }
         finally
         {
+            foreach (ImageFileItem file in files)
+            {
+                file.IsSelectedForProcessing = false;
+            }
+
             IsProcessing = false;
             _processingCancellation.Dispose();
             _processingCancellation = null;
+            OnPropertyChanged(nameof(SelectedForProcessingCount));
             NotifyStateChanged();
         }
 
@@ -400,9 +413,6 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
         OnPropertyChanged(nameof(ConflictPolicy));
     }
 
-    partial void OnSelectedItemCountChanged(int value) =>
-        OnPropertyChanged(nameof(CanRemoveFiles));
-
     partial void OnIsProcessingChanged(bool value) =>
         NotifyStateChanged();
 
@@ -431,7 +441,7 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
     private void NotifyStateChanged()
     {
         OnPropertyChanged(nameof(CanEditFiles));
-        OnPropertyChanged(nameof(CanRemoveFiles));
+        OnPropertyChanged(nameof(CanClearFiles));
         OnPropertyChanged(nameof(CanConfigure));
         OnPropertyChanged(nameof(CanStart));
         OnPropertyChanged(nameof(CanCancel));

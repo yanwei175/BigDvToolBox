@@ -125,30 +125,56 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 
     public async Task LoadFolderAsync(string folderPath)
     {
-        Cancel();
-        IReadOnlyList<string> files = RenameFileService.EnumerateSupportedFiles(folderPath);
-        Files.Clear();
-        foreach (string file in files)
+        if (!CanConfigure)
         {
-            Files.Add(file);
-        }
-
-        FolderPath = folderPath;
-        SelectedIndex = 0;
-        Results.Clear();
-        NotifyCollectionStateChanged();
-
-        if (files.Count == 0)
-        {
-            _currentDocument = null;
-            Status = "文件夹中没有 PDF、PNG、JPG 或 JPEG 文件。";
-            HasError = true;
             return;
         }
 
-        HasError = false;
-        Status = $"已加载 {files.Count} 个文件。";
-        await LoadCurrentPreviewAsync();
+        BeginOperation("正在加载文件夹…");
+        try
+        {
+            IReadOnlyList<string> files = RenameFileService.EnumerateSupportedFiles(folderPath);
+            Files.Clear();
+            foreach (string file in files)
+            {
+                Files.Add(file);
+            }
+
+            FolderPath = folderPath;
+            SelectedIndex = 0;
+            Results.Clear();
+            NotifyCollectionStateChanged();
+
+            if (files.Count == 0)
+            {
+                _currentDocument = null;
+                PreviewPixelWidth = 0;
+                PreviewPixelHeight = 0;
+                OnPropertyChanged(nameof(CurrentPreviewBytes));
+                OnPropertyChanged(nameof(CurrentDocument));
+                Status = "文件夹中没有 PDF、PNG、JPG 或 JPEG 文件。";
+                HasError = true;
+                return;
+            }
+
+            HasError = false;
+            Status = $"已加载 {files.Count} 个文件。";
+            await LoadCurrentPreviewAsync();
+        }
+        catch (Exception exception)
+        {
+            ReportFolderInputError($"文件夹加载失败：{exception.Message}");
+        }
+        finally
+        {
+            EndOperation();
+        }
+    }
+
+    internal void ReportFolderInputError(string message)
+    {
+        HasError = true;
+        Status = message;
     }
 
     public async Task<RenderedDocument?> LoadCurrentPreviewAsync()
