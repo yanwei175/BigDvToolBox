@@ -10,6 +10,97 @@ namespace BigDvToolBox.Tests;
 public sealed class RenameByOcrTests
 {
     [TestMethod]
+    public async Task EditedTargetName_IsUsedByRenameService()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string original = Path.Combine(folder, "source.pdf");
+            File.WriteAllText(original, "unchanged content");
+            RenamePreviewItem item = RenamePlanner.Plan([(original, "934lBG", string.Empty)])[0];
+
+            item.TargetName = "9341BG.pdf";
+            Assert.AreEqual(Path.Combine(folder, "9341BG.pdf"), item.TargetPath);
+            Assert.IsTrue(File.Exists(original), "Editing the preview must not rename files.");
+
+            BatchSummary result = await RenameFileService.ApplyAsync([item], CancellationToken.None);
+            Assert.AreEqual(1, result.Succeeded);
+            Assert.AreEqual("unchanged content", await File.ReadAllTextAsync(item.TargetPath));
+            Assert.IsFalse(File.Exists(original));
+            Assert.IsFalse(item.CanRename);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("../outside.pdf")]
+    [DataRow("C:\\outside.pdf")]
+    [DataRow("bad:name.pdf")]
+    [DataRow("name.pdf ")]
+    [DataRow("CON.pdf")]
+    public async Task InvalidEditedName_CannotRename(string name)
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string original = Path.Combine(folder, "source.pdf");
+            File.WriteAllText(original, "keep");
+            RenamePreviewItem item = RenamePlanner.Plan([(original, "initial", string.Empty)])[0];
+            item.TargetName = name;
+
+            Assert.IsFalse(item.CanRename);
+            Assert.IsFalse(string.IsNullOrEmpty(item.Error));
+            BatchSummary result = await RenameFileService.ApplyAsync([item], CancellationToken.None);
+            Assert.AreEqual(0, result.Succeeded);
+            Assert.IsTrue(File.Exists(original));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public void EditingNoChangeOrFailedItem_RefreshesCanApplyAndClearsCorrectedError()
+    {
+        string folder = CreateTempFolder();
+        try
+        {
+            string original = Path.Combine(folder, "source.pdf");
+            File.WriteAllText(original, "keep");
+            RenamePreviewItem item = RenamePlanner.Plan([(original, "source", string.Empty)])[0];
+            using var viewModel = new RenameByOcrViewModel(new PerPathRenderer());
+            viewModel.Results.Add(item);
+            bool notified = false;
+            viewModel.PropertyChanged += (_, e) => notified |= e.PropertyName == nameof(viewModel.CanApply);
+
+            Assert.IsTrue(item.IsNoChange);
+            Assert.IsFalse(viewModel.CanApply);
+            item.TargetName = "corrected.pdf";
+            Assert.IsFalse(item.IsNoChange);
+            Assert.IsTrue(viewModel.CanApply);
+            Assert.IsTrue(notified);
+
+            item.TargetName = "bad:name.pdf";
+            Assert.IsFalse(viewModel.CanApply);
+            item.TargetName = "fixed.pdf";
+            Assert.AreEqual(string.Empty, item.Error);
+            Assert.IsTrue(viewModel.CanApply);
+            item.TargetName = "source.pdf";
+            Assert.IsFalse(viewModel.CanApply);
+            Assert.AreEqual("无需修改", item.Status);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public void ExtractAfterAnchor_HandlesCrLfAndIsCaseInsensitive()
     {
         string result = OcrTextParser.ExtractAfterAnchor("Header\r\nCODE: AB-123\r\nFooter", "Code:");

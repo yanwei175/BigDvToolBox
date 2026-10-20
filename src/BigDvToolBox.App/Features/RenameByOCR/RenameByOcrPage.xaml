@@ -274,6 +274,7 @@
                         <ListView
                                 Grid.Row="0"
                                 AutomationProperties.AutomationId="OcrRenameResults"
+                                IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
                                 ItemsSource="{x:Bind ViewModel.Results, Mode=OneWay}">
                             <ListView.Header>
                                 <Grid
@@ -325,9 +326,11 @@
                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                    Text="{x:Bind Error, Mode=OneWay}"
                                                    TextWrapping="Wrap" />
-                                        <TextBlock Grid.Column="3" 
-                                                   Text="{x:Bind TargetName, Mode=OneWay}" 
-                                                   TextWrapping="Wrap"/>
+                                        <TextBox Grid.Column="3"
+                                                 AutomationProperties.AutomationId="OcrTargetNameInput"
+                                                 AutomationProperties.Name="目标文件名（含扩展名）"
+                                                 IsEnabled="{x:Bind CanEditTarget, Mode=OneWay}"
+                                                 Text="{x:Bind TargetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         <TextBlock Grid.Column="4" 
                                                    Text="{x:Bind Status, Mode=OneWay}" 
                                                    TextWrapping="Wrap"/>

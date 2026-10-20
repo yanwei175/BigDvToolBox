@@ -327,7 +327,6 @@ internal static class RenamePlanner
                 OriginalPath = originalPath,
                 OcrText = text,
                 TargetPath = target,
-                IsNoChange = noChange,
                 Status = noChange ? "无需修改" : "待确认",
             });
         }
@@ -357,16 +356,20 @@ internal static class RenameFileService
         foreach (RenamePreviewItem item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.IsNullOrEmpty(item.Error) || item.IsNoChange)
+            if (!item.CanRename)
             {
-                item.Status = item.IsNoChange ? "无需修改" : "已跳过";
+                if (item.CanEditTarget)
+                {
+                    item.Status = item.IsNoChange ? "无需修改" : "已跳过";
+                }
                 skipped++;
                 continue;
             }
 
             try
             {
-                await Task.Run(() => File.Move(item.OriginalPath, item.TargetPath), cancellationToken);
+                string targetPath = item.TargetPath;
+                await Task.Run(() => File.Move(item.OriginalPath, targetPath), cancellationToken);
                 item.Status = "已重命名";
                 succeeded++;
             }

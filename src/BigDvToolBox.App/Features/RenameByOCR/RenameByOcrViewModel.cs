@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace BigDvToolBox_App.Features.RenameByOCR;
@@ -8,6 +10,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 {
     private readonly IDocumentRenderer _renderer;
     private readonly Func<IOcrService>? _ocrServiceFactory;
+    private readonly HashSet<RenamePreviewItem> _observedResults = [];
     private CancellationTokenSource? _operationCancellation;
     private RenderedDocument? _currentDocument;
 
@@ -22,6 +25,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
     {
         _renderer = renderer;
         _ocrServiceFactory = ocrServiceFactory;
+        Results.CollectionChanged += Results_CollectionChanged;
         IsSupported = RuntimeInformation.ProcessArchitecture is Architecture.X64 or Architecture.X86;
     }
 
@@ -57,6 +61,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStart))]
+    [NotifyPropertyChangedFor(nameof(CanApply))]
     [NotifyPropertyChangedFor(nameof(CanCancel))]
     [NotifyPropertyChangedFor(nameof(CanExport))]
     [NotifyPropertyChangedFor(nameof(CanConfigure))]
@@ -420,6 +425,54 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
     {
         Cancel();
         _operationCancellation?.Dispose();
+        Results.CollectionChanged -= Results_CollectionChanged;
+        foreach (RenamePreviewItem item in _observedResults)
+        {
+            item.PropertyChanged -= Result_PropertyChanged;
+        }
+        _observedResults.Clear();
+    }
+
+    private void Results_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            foreach (RenamePreviewItem item in _observedResults)
+            {
+                item.PropertyChanged -= Result_PropertyChanged;
+            }
+            _observedResults.Clear();
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (RenamePreviewItem item in e.OldItems)
+            {
+                item.PropertyChanged -= Result_PropertyChanged;
+                _observedResults.Remove(item);
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (RenamePreviewItem item in e.NewItems)
+            {
+                if (_observedResults.Add(item))
+                {
+                    item.PropertyChanged += Result_PropertyChanged;
+                }
+            }
+        }
+
+        OnPropertyChanged(nameof(CanApply));
+    }
+
+    private void Result_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RenamePreviewItem.CanRename))
+        {
+            OnPropertyChanged(nameof(CanApply));
+        }
     }
 
     partial void OnModeIndexChanged(int value) => OnPropertyChanged(nameof(CanStart));
