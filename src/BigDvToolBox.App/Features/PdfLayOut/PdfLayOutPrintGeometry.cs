@@ -1,0 +1,46 @@
+namespace BigDvToolBox_App.Features.PdfLayOut;
+
+internal readonly record struct PdfLayOutPrintPageRange(uint From, uint To);
+internal readonly record struct PdfLayOutPrintRasterSize(int Width, int Height);
+internal sealed record PdfLayOutPrintVisualPlan(PdfLayOutSize Paper, PdfLayOutRect Sheet);
+
+/// <summary>物理毫米、打印页 DIP 与栅格像素的转换。分辨率限制不改变纸上的尺寸。</summary>
+internal static class PdfLayOutPrintGeometry
+{
+    internal const int MaximumRasterDpi = 600;
+    internal const int MaximumRasterEdge = 16000;
+    internal const long MaximumRasterPixels = 24_000_000;
+    public static PdfLayOutPrintVisualPlan CreateVisualPlan(PdfLayOutSize sheet, PdfLayOutSize paperInDip)
+    {
+        if (!sheet.IsValid || !paperInDip.IsValid) throw new InvalidOperationException("印张或打印纸张尺寸无效。");
+        double width = sheet.Width * 96 / 25.4, height = sheet.Height * 96 / 25.4;
+        return new(paperInDip, new((paperInDip.Width - width) / 2, (paperInDip.Height - height) / 2, width, height));
+    }
+
+    public static PdfLayOutPrintRasterSize CreateRasterSize(PdfLayOutSize sheet, double dpi)
+    {
+        if (!sheet.IsValid || !double.IsFinite(dpi) || dpi <= 0) throw new InvalidOperationException("印张尺寸或打印分辨率无效。");
+        double rasterDpi = Math.Min(dpi, MaximumRasterDpi);
+        double rasterWidth = sheet.Width / 25.4 * rasterDpi;
+        double rasterHeight = sheet.Height / 25.4 * rasterDpi;
+        double scale = Math.Min(1, Math.Min(MaximumRasterEdge / Math.Max(rasterWidth, rasterHeight),
+            Math.Sqrt(MaximumRasterPixels / (rasterWidth * rasterHeight))));
+        return new PdfLayOutPrintRasterSize(Math.Max(1, (int)Math.Floor(rasterWidth * scale)),
+            Math.Max(1, (int)Math.Floor(rasterHeight * scale)));
+    }
+
+    public static IReadOnlyList<int> SelectPages(int pageCount, IReadOnlyList<PdfLayOutPrintPageRange>? ranges)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(pageCount, 1);
+        if (ranges is null) return Enumerable.Range(0, pageCount).ToArray();
+        var pages = new SortedSet<int>();
+        foreach (PdfLayOutPrintPageRange range in ranges)
+        {
+            if (range.From < 1 || range.To < range.From || range.To > pageCount)
+                throw new InvalidOperationException("打印页码范围无效。");
+            for (uint page = range.From; page <= range.To; page++) pages.Add(checked((int)page - 1));
+        }
+        if (pages.Count == 0) throw new InvalidOperationException("请选择需要打印的页码。");
+        return pages.ToArray();
+    }
+}

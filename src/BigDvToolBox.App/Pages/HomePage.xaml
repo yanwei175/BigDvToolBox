@@ -39,9 +39,7 @@
                 Grid.Column="1"
                 VerticalAlignment="Center"
                 Spacing="6">
-                <TextBlock
-                    Style="{StaticResource TitleTextBlockStyle}"
-                    Text="BigDvToolBox" />
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="BigDvToolBox" />
                 <TextBlock
                     MaxWidth="720"
                     HorizontalAlignment="Left"
@@ -60,7 +58,7 @@
             ItemClick="ToolCards_ItemClick"
             ItemsSource="{x:Bind Tools, Mode=OneWay}"
             SelectionMode="None">
-            
+
             <GridView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid
@@ -69,7 +67,7 @@
                         Orientation="Horizontal" />
                 </ItemsPanelTemplate>
             </GridView.ItemsPanel>
-            
+
             <GridView.ItemContainerStyle>
                 <Style TargetType="GridViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -78,7 +76,7 @@
                     <Setter Property="Padding" Value="0" />
                 </Style>
             </GridView.ItemContainerStyle>
-            
+
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="navigation:ToolPageDefinition">
                     <Border
@@ -100,13 +98,9 @@
                                 AutomationProperties.AccessibilityView="Raw"
                                 Symbol="{x:Bind Icon}" />
 
-                            <StackPanel
-                                Grid.Row="1"
-                                Spacing="6">
+                            <StackPanel Grid.Row="1" Spacing="6">
+                                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind Title}" />
                                 <TextBlock
-                                    Style="{StaticResource SubtitleTextBlockStyle}"
-                                    Text="{x:Bind Title}" />
-                                <TextBlock 
                                     MaxLines="2"
                                     Style="{StaticResource BodyTextBlockStyle}"
                                     Text="{x:Bind Description}"
@@ -119,12 +113,8 @@
                                 HorizontalAlignment="Right"
                                 Orientation="Horizontal"
                                 Spacing="6">
-                                <TextBlock
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="打开工具" />
-                                <SymbolIcon
-                                    AutomationProperties.AccessibilityView="Raw"
-                                    Symbol="Forward" />
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="打开工具" />
+                                <SymbolIcon AutomationProperties.AccessibilityView="Raw" Symbol="Forward" />
                             </StackPanel>
                         </Grid>
                     </Border>

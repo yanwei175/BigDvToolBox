@@ -27,6 +27,7 @@
 	  <NoWarn>CA2252;CA2014</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Features\PdfLayOut\PdfLayOutPage.xaml" />
     <None Remove="Features\PdfOutlineFonts\Assets\gsdll32.dll" />
   </ItemGroup>
 
@@ -79,10 +80,12 @@
     <PropertyGroup> above to opt out.
   -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7705" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.7.1" />
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageReference Include="Tesseract" Version="5.2.0" />
   </ItemGroup>
   <ItemGroup>
@@ -121,6 +124,11 @@
     <None Update="Features\RenameByOCR\tessdata\*.traineddata">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Features\PdfLayOut\PdfLayOutPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <!--

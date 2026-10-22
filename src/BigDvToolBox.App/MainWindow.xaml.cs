@@ -1,5 +1,6 @@
 using BigDvToolBox.App.Pages;
 using BigDvToolBox_App.Features.ImageProcessing;
+using BigDvToolBox_App.Features.PdfLayOut;
 using BigDvToolBox_App.Features.PdfOutlineFonts;
 using BigDvToolBox_App.Features.RenameByOCR;
 using BigDvToolBox_App.Navigation;
@@ -53,6 +54,12 @@ namespace BigDvToolBox_App
                 Symbol.Document,
                 typeof(PdfOutlineFontsPage),
                 "将 PDF 中的字体转换为轮廓，减少跨设备显示差异。"),
+            new(
+                "pdfLayOut",
+                "PDF 拼版",
+                Symbol.Page,
+                typeof(PdfLayOutPage),
+                "设置印张、版式和印刷标记，预览 PDF 拼版布局。"),
             new(
                 "imageProcessing",
                 "图片处理",

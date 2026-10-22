@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <Page
     x:Class="BigDvToolBox_App.Pages.UnitConvertorPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,20 +10,16 @@
 
     <TabView
         Margin="12"
+        VerticalAlignment="Stretch"
         AutomationProperties.AutomationId="UnitConverterCategories"
-        IsAddTabButtonVisible="False"
-        VerticalAlignment="Stretch">
+        IsAddTabButtonVisible="False">
         <TabViewItem
             AutomationProperties.AutomationId="LengthConverterTab"
             Header="长度转换"
             IsClosable="False">
             <ScrollViewer HorizontalAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel
-                    Padding="24"
-                    Spacing="16">
-                    <TextBlock
-                        Style="{StaticResource TitleTextBlockStyle}"
-                        Text="长度转换" />
+                <StackPanel Padding="24" Spacing="16">
+                    <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="长度转换" />
                     <TextBlock
                         Style="{StaticResource BodyTextBlockStyle}"
                         Text="三组数值都可作为输入源。按 Enter，或离开当前输入框时转换。"
@@ -37,9 +33,7 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Spacing="12">
-                            <TextBlock
-                                Style="{StaticResource SubtitleTextBlockStyle}"
-                                Text="公制" />
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="公制" />
                             <NumberBox
                                 x:Name="MetricValueNumberBox"
                                 AutomationProperties.AutomationId="MetricLengthInput"
@@ -61,9 +55,7 @@
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Spacing="12">
-                            <TextBlock
-                                Style="{StaticResource SubtitleTextBlockStyle}"
-                                Text="小数英寸" />
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="小数英寸" />
                             <NumberBox
                                 x:Name="DecimalInchNumberBox"
                                 AutomationProperties.AutomationId="DecimalInchInput"
@@ -76,9 +68,7 @@
                         </StackPanel>
 
                         <StackPanel Grid.Column="2" Spacing="12">
-                            <TextBlock
-                                Style="{StaticResource SubtitleTextBlockStyle}"
-                                Text="分数英寸" />
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="分数英寸" />
                             <Grid ColumnSpacing="8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="80" />
@@ -122,9 +112,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind ViewModel.LengthStatus, Mode=OneWay}" />
+                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.LengthStatus, Mode=OneWay}" />
                 </StackPanel>
             </ScrollViewer>
         </TabViewItem>
@@ -143,7 +131,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    
+
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="5*" />
                         <ColumnDefinition Width="5*" />
@@ -154,9 +142,7 @@
                         MaxWidth="540"
                         HorizontalAlignment="Left"
                         Spacing="16">
-                        <TextBlock
-                            Style="{StaticResource TitleTextBlockStyle}"
-                            Text="流量转换" />
+                        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="流量转换" />
                         <TextBlock
                             Style="{StaticResource BodyTextBlockStyle}"
                             Text="升/分钟与美制加仑/分钟双向换算。1 US gal = 3.785411784 L。"
@@ -171,7 +157,7 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition  Width="*" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
@@ -202,15 +188,14 @@
                             IsReadOnly="True"
                             Text="{x:Bind ViewModel.FlowResult, Mode=OneWay}" />
 
-                        <TextBlock
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind ViewModel.FlowTargetUnit, Mode=OneWay}" />
-                        
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.FlowTargetUnit, Mode=OneWay}" />
+
                     </StackPanel>
 
                     <Border
                         x:Name="FlowStandardsPanel"
-                        Grid.Row="0" Grid.RowSpan="2"
+                        Grid.Row="0"
+                        Grid.RowSpan="2"
                         Grid.Column="1"
                         Padding="20"
                         HorizontalAlignment="Stretch"
@@ -221,70 +206,42 @@
                         BorderThickness="1"
                         CornerRadius="8">
                         <StackPanel Spacing="14">
-                            <TextBlock
-                                Style="{StaticResource SubtitleTextBlockStyle}"
-                                Text="美国流量标准速查" />
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="美国流量标准速查" />
                             <TextBlock
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="CEC-140-2021-002（California Title 20）、CALGreen 与 ASME A112.18.1/CSA B125.1"
                                 TextWrapping="Wrap" />
 
                             <StackPanel Spacing="4">
-                                <TextBlock
-                                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                                    Text="私用面盆龙头" />
-                                <TextBlock
-                                    Text="CEC Title 20：最大 1.2 GPM / 4.5 L/min @ 60 psi / 4.1 bar"
-                                    TextWrapping="Wrap" />
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="私用面盆龙头" />
+                                <TextBlock Text="CEC Title 20：最大 1.2 GPM / 4.5 L/min @ 60 psi / 4.1 bar" TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <Border
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="0,1,0,0" />
+                            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
 
                             <StackPanel Spacing="4">
-                                <TextBlock
-                                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                                    Text="厨房龙头" />
-                                <TextBlock
-                                    Text="CEC Title 20：默认流量最大 1.8 GPM / 6.8 L/min @ 60 psi / 4.1 bar"
-                                    TextWrapping="Wrap" />
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="厨房龙头" />
+                                <TextBlock Text="CEC Title 20：默认流量最大 1.8 GPM / 6.8 L/min @ 60 psi / 4.1 bar" TextWrapping="Wrap" />
                                 <TextBlock
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="多出水模式：带自动回位时，第一出水应符合 1.8 GPM 限值；不带自动回位时，第一和第二出水均不得超过 1.8 GPM。"
                                     TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <Border
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="0,1,0,0" />
+                            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
 
                             <StackPanel Spacing="4">
-                                <TextBlock
-                                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                                    Text="浴缸出水口" />
-                                <TextBlock
-                                    Text="CEC / ASME：最小 2.4 GPM / 9.0 L/min @ 20 psi / 1.4 bar"
-                                    TextWrapping="Wrap" />
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="浴缸出水口" />
+                                <TextBlock Text="CEC / ASME：最小 2.4 GPM / 9.0 L/min @ 20 psi / 1.4 bar" TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <Border
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="0,1,0,0" />
+                            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" />
 
                             <StackPanel Spacing="4">
-                                <TextBlock
-                                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                                    Text="花洒（手持、顶喷、背喷）" />
-                                <TextBlock
-                                    Text="CEC Title 20：最大 2.0 GPM / 7.6 L/min @ 80 psi / 5.5 bar"
-                                    TextWrapping="Wrap" />
-                                <TextBlock
-                                    Text="CALGreen：最大 1.8 GPM / 6.8 L/min @ 80 psi / 5.5 bar"
-                                    TextWrapping="Wrap" />
-                                <TextBlock
-                                    Text="ASME A112.18.1/CSA B125.1：最大 2.5 GPM / 9.5 L/min @ 80 psi / 5.5 bar"
-                                    TextWrapping="Wrap" />
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="花洒（手持、顶喷、背喷）" />
+                                <TextBlock Text="CEC Title 20：最大 2.0 GPM / 7.6 L/min @ 80 psi / 5.5 bar" TextWrapping="Wrap" />
+                                <TextBlock Text="CALGreen：最大 1.8 GPM / 6.8 L/min @ 80 psi / 5.5 bar" TextWrapping="Wrap" />
+                                <TextBlock Text="ASME A112.18.1/CSA B125.1：最大 2.5 GPM / 9.5 L/min @ 80 psi / 5.5 bar" TextWrapping="Wrap" />
                             </StackPanel>
 
                             <TextBlock
@@ -293,7 +250,7 @@
                                 TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
-                    
+
                 </Grid>
             </ScrollViewer>
         </TabViewItem>
