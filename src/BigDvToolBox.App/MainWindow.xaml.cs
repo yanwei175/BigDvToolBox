@@ -4,6 +4,7 @@ using BigDvToolBox_App.Features.PdfLayOut;
 using BigDvToolBox_App.Features.PdfOutlineFonts;
 using BigDvToolBox_App.Features.RenameByOCR;
 using BigDvToolBox_App.Navigation;
+using BigDvToolBox_App.ViewModels;
 using BigDvToolBox_App.Pages;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -66,14 +67,6 @@ namespace BigDvToolBox_App
                 Symbol.Pictures,
                 typeof(ImageProcessingPage),
                 "批量调整图片尺寸和输出设置，快速完成常见图像处理。"),
-            new(
-                "settings",
-                "设置",
-                Symbol.Setting,
-                typeof(SettingsPage),
-                "调整工具箱的外观和行为。",
-                IsSettings: true,
-                ShowOnHome: false),
         ];
 
         private readonly Dictionary<string, ToolPageDefinition> _pageDefinitions =
@@ -86,6 +79,11 @@ namespace BigDvToolBox_App
             new(StringComparer.Ordinal);
 
         private bool _isSynchronizingSelection;
+        private bool _isShellDialogOpen;
+
+        public AboutViewModel About { get; } = new();
+
+
 
         public MainWindow()
         {
@@ -122,6 +120,22 @@ namespace BigDvToolBox_App
             AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
         }
 
+        private async void AboutMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isShellDialogOpen) return;
+            _isShellDialogOpen = true;
+            try
+            {
+                AboutDialog.XamlRoot = RootGrid.XamlRoot;
+                await AboutDialog.ShowAsync();
+            }
+            finally { _isShellDialogOpen = false; }
+        }
+
+        private async void ReleasesMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            await Windows.System.Launcher.LaunchUriAsync(About.ReleasesUri);
+        }
         private void TitleBar_PaneToggleRequested(TitleBar sender, object args)
         {
             NavView.IsPaneOpen = !NavView.IsPaneOpen;
@@ -129,7 +143,7 @@ namespace BigDvToolBox_App
 
         private void BuildNavigationItems()
         {
-            foreach (ToolPageDefinition definition in ToolPages.Where(page => !page.IsSettings))
+            foreach (ToolPageDefinition definition in ToolPages)
             {
                 var navigationItem = new NavigationViewItem
                 {
@@ -144,15 +158,6 @@ namespace BigDvToolBox_App
                 _navigationItems.Add(definition.Id, navigationItem);
             }
 
-            ToolPageDefinition settingsDefinition = ToolPages.Single(page => page.IsSettings);
-            if (NavView.SettingsItem is NavigationViewItem settingsItem)
-            {
-                settingsItem.Content = settingsDefinition.Title;
-                settingsItem.Icon = new SymbolIcon(settingsDefinition.Icon);
-                settingsItem.Tag = settingsDefinition.Id;
-                AutomationProperties.SetAutomationId(settingsItem, $"Nav_{settingsDefinition.Id}");
-                AutomationProperties.SetName(settingsItem, $"打开 {settingsDefinition.Title}");
-            }
         }
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -162,12 +167,7 @@ namespace BigDvToolBox_App
                 return;
             }
 
-            if (args.IsSettingsSelected)
-            {
-                ToolPageDefinition settingsDefinition = ToolPages.Single(page => page.IsSettings);
-                OpenOrActivateTool(settingsDefinition.Id);
-            }
-            else if (args.SelectedItem is NavigationViewItem { Tag: string pageId })
+            if (args.SelectedItem is NavigationViewItem { Tag: string pageId })
             {
                 OpenOrActivateTool(pageId);
             }
@@ -227,9 +227,7 @@ namespace BigDvToolBox_App
             _isSynchronizingSelection = true;
             try
             {
-                NavView.SelectedItem = definition.IsSettings
-                    ? NavView.SettingsItem
-                    : _navigationItems[definition.Id];
+                NavView.SelectedItem = _navigationItems[definition.Id];
             }
             finally
             {
@@ -266,5 +264,6 @@ namespace BigDvToolBox_App
                 sender.SelectedIndex = Math.Min(closedIndex, sender.TabItems.Count - 1);
             }
         }
+
     }
 }

@@ -13,7 +13,6 @@ internal sealed record ToolPageDefinition(
     Type PageType,
     string Description = "",
     bool IsClosable = true,
-    bool IsSettings = false,
     bool ShowOnHome = true);
 
 /// <summary>

@@ -1,0 +1,47 @@
+<Project>
+  <PropertyGroup>
+    <PortableRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</PortableRepositoryRoot>
+    <PortablePowerShell>$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe</PortablePowerShell>
+  </PropertyGroup>
+
+  <!-- 在程序集属性生成前确定本次版本；普通编译/其他发布配置均不参与。 -->
+  <Target Name="PreparePortablePublishVersion"
+          BeforeTargets="PrepareForBuild;GetAssemblyVersion;ComputeFilesToPublish"
+          Condition="'$(GeneratePortableArchive)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true'">
+    <Error Condition="'$(Configuration)' != 'Release' or '$(RuntimeIdentifier)' != 'win-x64'"
+           Text="绿色版 ZIP 须使用 Release / x64 / win-x64 配置。" />
+    <Error Condition="'$(NoBuild)' == 'true'" Text="绿色版发布需要完整编译，请不要使用 NoBuild。" />
+    <PropertyGroup>
+      <_PortableVersionFile>$(PortableRepositoryRoot)artifacts\vs-publish\$(PortablePublishSessionId)\version.txt</_PortableVersionFile>
+    </PropertyGroup>
+    <Exec Command="&quot;$(PortablePowerShell)&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;$(PortableRepositoryRoot)build\Publish-Release.ps1&quot; -PrepareVersionFile &quot;$(_PortableVersionFile)&quot;"
+          WorkingDirectory="$(PortableRepositoryRoot)" />
+    <ReadLinesFromFile File="$(_PortableVersionFile)">
+      <Output TaskParameter="Lines" PropertyName="_PortablePreparedVersion" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <Version>$(_PortablePreparedVersion)</Version>
+      <VersionPrefix>$(Version)</VersionPrefix>
+      <PackageVersion>$(Version)</PackageVersion>
+      <AssemblyVersion>$(Version).0</AssemblyVersion>
+      <FileVersion>$(Version).0</FileVersion>
+      <InformationalVersion>$(Version)</InformationalVersion>
+    </PropertyGroup>
+    <Error Condition="'$(Version)' != '$(_PortablePreparedVersion)'"
+           Text="绿色版配置自动管理版本，请在 build/Release.props 中调整版本，不要通过全局 Version 属性覆盖。" />
+    <Message Importance="High" Text="绿色版本次发布版本：$(Version)，开发者：$(Authors)" />
+  </Target>
+
+  <!-- 复用本次 VS 发布的文件，不再次编译或递归触发 Publish。 -->
+  <Target Name="BuildPortableArchiveAfterPublish"
+          AfterTargets="Publish;AfterPublish"
+          DependsOnTargets="PreparePortablePublishVersion"
+          Condition="'$(GeneratePortableArchive)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true'">
+    <PropertyGroup>
+      <_PortablePublishedDirectory>$([System.IO.Path]::GetFullPath('$(PublishDir)'))</_PortablePublishedDirectory>
+    </PropertyGroup>
+    <Exec Command="&quot;$(PortablePowerShell)&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;$(PortableRepositoryRoot)build\Publish-Release.ps1&quot; -PublishedDirectory &quot;$(_PortablePublishedDirectory).&quot; -PublishedVersion &quot;$(Version)&quot;"
+          WorkingDirectory="$(PortableRepositoryRoot)" />
+    <Message Importance="High" Text="绿色版 ZIP：$(PortableRepositoryRoot)artifacts\releases\$(Version)\BigDvToolBox-$(Version)-win-x64.zip" />
+  </Target>
+</Project>

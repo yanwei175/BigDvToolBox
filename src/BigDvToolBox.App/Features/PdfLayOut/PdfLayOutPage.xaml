@@ -71,652 +71,699 @@
 
     <!--  窄窗口保留横向滚动，确保设置和预览工具栏都可以访问。  -->
     <Grid>
-    <ScrollViewer
-        x:Name="WorkspaceScroll"
-        HorizontalScrollBarVisibility="Auto"
-        HorizontalScrollMode="Auto"
-        VerticalScrollBarVisibility="Auto"
-        VerticalScrollMode="Auto">
-        <Grid
-            Height="{Binding ViewportHeight, ElementName=WorkspaceScroll}"
-            MinWidth="1150"
-            MinHeight="660"
-            Padding="20"
-            AllowDrop="True"
-            DragOver="Files_DragOver"
-            Drop="Files_Drop"
-            Background="{ThemeResource LayerFillColorDefaultBrush}"
-            RowSpacing="16">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+        <ScrollViewer
+            x:Name="WorkspaceScroll"
+            HorizontalScrollBarVisibility="Auto"
+            HorizontalScrollMode="Auto"
+            VerticalScrollBarVisibility="Auto"
+            VerticalScrollMode="Auto">
+            <Grid
+                Height="{Binding ViewportHeight, ElementName=WorkspaceScroll}"
+                MinWidth="1150"
+                MinHeight="660"
+                Padding="20"
+                AllowDrop="True"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                DragOver="Files_DragOver"
+                Drop="Files_Drop"
+                RowSpacing="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel
-                    VerticalAlignment="Center"
-                    Orientation="Horizontal"
-                    Spacing="10">
-                    <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8A5;" />
-                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="PDF 拼版" />
-                </StackPanel>
-                <TextBlock
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="将 PDF 页面排列到印张上 · 单位：毫米 (mm)" />
-                <Border
-                    Grid.Column="2"
-                    Padding="12,5"
-                    Background="{ThemeResource AccentFillColorTertiaryBrush}"
-                    CornerRadius="12">
-                    <TextBlock Style="{StaticResource HintStyle}" Text="重复拼版 · 毫米" />
-                </Border>
-            </Grid>
-
-            <Grid Grid.Row="1" ColumnSpacing="20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="340" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!--  左侧：与参考网页相同的五组设置。  -->
-                <Grid RowSpacing="16">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <StackPanel Spacing="6">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ComboBox
-                                x:Name="PresetSelector"
-                                Header="拼版配置"
-                                HorizontalAlignment="Stretch"
-                                AutomationProperties.AutomationId="PdfLayOutPresetSelector"
-                                AutomationProperties.Name="选择拼版配置"
-                                DisplayMemberPath="DisplayName"
-                                ItemsSource="{x:Bind ViewModel.Presets, Mode=OneWay}"
-                                SelectedItem="{x:Bind ViewModel.SelectedPreset, Mode=OneWay}"
-                                SelectionChanged="PresetSelector_SelectionChanged"
-                                IsEnabled="{x:Bind ViewModel.CanManagePresets, Mode=OneWay}" />
-                            <Button
-                                Grid.Column="1"
-                                VerticalAlignment="Bottom"
-                                AutomationProperties.AutomationId="PdfLayOutManagePresets"
-                                Content="管理"
-                                IsEnabled="{x:Bind ViewModel.CanManagePresets, Mode=OneWay}">
-                                <Button.Flyout>
-                                    <MenuFlyout>
-                                        <MenuFlyoutItem Text="新增配置（保存当前版式）" Click="AddPreset_Click" AutomationProperties.AutomationId="PdfLayOutAddPreset" />
-                                        <MenuFlyoutItem Text="保存当前配置" Command="{x:Bind ViewModel.SavePresetCommand}" AutomationProperties.AutomationId="PdfLayOutSavePreset" />
-                                        <MenuFlyoutItem Text="重命名" Click="RenamePreset_Click" IsEnabled="{x:Bind ViewModel.CanLoadPreset, Mode=OneWay}" AutomationProperties.AutomationId="PdfLayOutRenamePreset" />
-                                        <MenuFlyoutItem Text="删除" Click="DeletePreset_Click" IsEnabled="{x:Bind ViewModel.CanDeletePreset, Mode=OneWay}" AutomationProperties.AutomationId="PdfLayOutDeletePreset" />
-                                        <MenuFlyoutSeparator />
-                                        <MenuFlyoutItem Text="刷新配置列表" Command="{x:Bind ViewModel.RefreshPresetsCommand}" AutomationProperties.AutomationId="PdfLayOutRefreshPresets" />
-                                    </MenuFlyout>
-                                </Button.Flyout>
-                            </Button>
-                        </Grid>
-                        <TextBlock Style="{StaticResource HintStyle}" Text="{x:Bind ViewModel.PresetHint, Mode=OneWay}" />
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="10">
+                        <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8A5;" />
+                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="PDF 拼版" />
                     </StackPanel>
-                    <Pivot
-                        Grid.Row="1"
-                        x:Name="SettingsTabs"
-                        AutomationProperties.AutomationId="PdfLayOutSettingsTabs"
-                        AutomationProperties.Name="拼版设置分类"
-                        SelectedIndex="{Binding SelectedSection, Mode=TwoWay}">
-                        <Pivot.Resources>
-                            <x:Double x:Key="PivotHeaderItemFontSize">14</x:Double>
-                            <Thickness x:Key="PivotHeaderItemMargin">8,0,8,0</Thickness>
-                        </Pivot.Resources>
-                        <PivotItem Header="源文件">
-                            <ScrollViewer
-                                Padding="4,8,12,16"
-                                HorizontalScrollMode="Disabled"
-                                VerticalScrollBarVisibility="Auto">
-                                <StackPanel Spacing="20">
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="源 PDF" />
-                                        <Button
-                                            Padding="16,24"
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Stretch"
-                                            AutomationProperties.AutomationId="PdfLayOutChooseSource"
-                                            AutomationProperties.Name="选择或替换源 PDF"
-                                            Click="ChooseSource_Click"
-                                            IsEnabled="{x:Bind ViewModel.CanLoadDocument, Mode=OneWay}"
-                                            ToolTipService.ToolTip="选择 PDF，或将一个 PDF 文件拖入页面。">
-                                            <StackPanel HorizontalAlignment="Center" Spacing="10">
-                                                <FontIcon
-                                                    FontSize="28"
-                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                    Glyph="&#xE8A5;" />
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    FontWeight="SemiBold"
-                                                    Text="{Binding FileName}" />
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    Style="{StaticResource HintStyle}"
-                                                    Text="{Binding FileDetails}" />
-                                                <TextBlock
-                                                    HorizontalAlignment="Center"
-                                                    Style="{StaticResource HintStyle}"
-                                                    Text="拖入另一个文件，或点击替换" />
-                                            </StackPanel>
-                                        </Button>
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button
-                                                AutomationProperties.AutomationId="PdfLayOutRefreshPreview"
-                                                Command="{x:Bind ViewModel.RefreshPreviewCommand}"
-                                                Content="刷新预览" />
-                                            <Button
-                                                AutomationProperties.AutomationId="PdfLayOutCancel"
-                                                Command="{x:Bind ViewModel.CancelOperationCommand}"
-                                                Content="取消加载 / 预览" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="裁切源 PDF" />
-                                        <TextBlock Style="{StaticResource HintStyle}" Text="每页在放置前先裁切；文件本身不会改动。" />
-                                        <Grid ColumnSpacing="12" RowSpacing="10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <NumberBox
-                                                Header="上 (mm)"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding CropTop, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Column="1"
-                                                Header="右 (mm)"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding CropRight, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Row="1"
-                                                Header="下 (mm)"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding CropBottom, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Row="1"
-                                                Grid.Column="1"
-                                                Header="左 (mm)"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding CropLeft, Mode=TwoWay}" />
-                                        </Grid>
-                                        <TextBlock Style="{StaticResource HintStyle}" Text="{Binding TrimmedPageSummary}" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </PivotItem>
-                        <PivotItem Header="印张">
-                            <ScrollViewer
-                                Padding="4,8,12,16"
-                                HorizontalScrollMode="Disabled"
-                                VerticalScrollBarVisibility="Auto">
-                                <StackPanel Spacing="20">
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="开数" />
-                                        <TextBlock Style="{StaticResource HintStyle}" Text="页面要排在哪种纸上。" />
-                                        <ComboBox
-                                            Header="印张尺寸"
-                                            ItemsSource="{Binding PaperSizes}"
-                                            SelectedIndex="{Binding PaperSizeIndex, Mode=TwoWay}"
-                                            Style="{StaticResource SettingComboStyle}" />
-                                        <RadioButtons
-                                            Header="方向"
-                                            MaxColumns="2"
-                                            SelectedIndex="{Binding OrientationIndex, Mode=TwoWay}">
-                                            <x:String>竖向</x:String>
-                                            <x:String>横向</x:String>
-                                        </RadioButtons>
-                                        <Grid ColumnSpacing="12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-                                            <NumberBox
-                                                Header="宽"
-                                                Minimum="1"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding SheetWidth, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Column="1"
-                                                Header="高"
-                                                Minimum="1"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding SheetHeight, Mode=TwoWay}" />
-                                        </Grid>
-                                    </StackPanel>
-                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="印张页边距" />
-                                        <TextBlock Style="{StaticResource HintStyle}" Text="印张边缘不印刷的区域。" />
-                                        <Grid ColumnSpacing="12" RowSpacing="10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <NumberBox
-                                                Header="上"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding MarginTop, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Column="1"
-                                                Header="右"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding MarginRight, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Row="1"
-                                                Header="下"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding MarginBottom, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Row="1"
-                                                Grid.Column="1"
-                                                Header="左"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding MarginLeft, Mode=TwoWay}" />
-                                        </Grid>
-                                    </StackPanel>
-                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="标签位移" />
-                                        <TextBlock Style="{StaticResource HintStyle}" Text="相对容器内的居中位置偏移，超出容器的部分会被裁切。" />
-                                        <Grid ColumnSpacing="12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-                                            <NumberBox
-                                                Header="横向"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding OffsetX, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Column="1"
-                                                Header="纵向"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding OffsetY, Mode=TwoWay}" />
-                                        </Grid>
-                                    </StackPanel>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </PivotItem>
-                        <PivotItem Header="版式">
-                            <ScrollViewer
-                                Padding="4,8,12,16"
-                                HorizontalScrollMode="Disabled"
-                                VerticalScrollBarVisibility="Auto">
-                                <StackPanel Spacing="20">
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="方式" />
-                                        <ComboBox
-                                            Header="拼版方式"
-                                            SelectedIndex="0"
-                                            Style="{StaticResource SettingComboStyle}">
-                                            <x:String>重复拼版</x:String>
-                                        </ComboBox>
-                                    </StackPanel>
-                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="网格" />
-                                        <ToggleSwitch
-                                            Header="自动"
-                                            IsOn="{Binding IsAutomaticGrid, Mode=TwoWay}"
-                                            OffContent="手动指定行列"
-                                            OnContent="按页面原始尺寸自动排列" />
-                                        <Grid ColumnSpacing="12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-                                            <NumberBox
-                                                Header="列"
-                                                IsEnabled="{x:Bind ViewModel.CanEditGrid, Mode=OneWay}"
-                                                Maximum="100"
-                                                Minimum="1"
-                                                SmallChange="1"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding Columns, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Column="1"
-                                                Header="行"
-                                                IsEnabled="{x:Bind ViewModel.CanEditGrid, Mode=OneWay}"
-                                                Maximum="100"
-                                                Minimum="1"
-                                                SmallChange="1"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding Rows, Mode=TwoWay}" />
-                                        </Grid>
-                                    </StackPanel>
-                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="间距" />
-                                        <TextBlock Style="{StaticResource HintStyle}" Text="相邻容器之间的空隙，标签默认居中放置在容器内。" />
-                                        <Grid ColumnSpacing="12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition />
-                                                <ColumnDefinition />
-                                            </Grid.ColumnDefinitions>
-                                            <NumberBox
-                                                Header="横向"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding HorizontalGap, Mode=TwoWay}" />
-                                            <NumberBox
-                                                Grid.Column="1"
-                                                Header="纵向"
-                                                Minimum="0"
-                                                Style="{StaticResource SettingNumberStyle}"
-                                                Value="{Binding VerticalGap, Mode=TwoWay}" />
-                                        </Grid>
-                                    </StackPanel>
-                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="缩放" />
-                                        <ComboBox
-                                            Header="缩放方式"
-                                            ItemsSource="{Binding ScaleModes}"
-                                            SelectedIndex="{Binding ScaleModeIndex, Mode=TwoWay}"
-                                            Style="{StaticResource SettingComboStyle}" />
-                                        <NumberBox
-                                            Header="缩放比例 (%)"
-                                            Maximum="1000"
-                                            Minimum="1"
-                                            Style="{StaticResource SettingNumberStyle}"
-                                            Value="{Binding ScalePercent, Mode=TwoWay}" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </PivotItem>
-                        <PivotItem Header="标记">
-                            <ScrollViewer
-                                Padding="4,8,12,16"
-                                HorizontalScrollMode="Disabled"
-                                VerticalScrollBarVisibility="Auto">
-                                <StackPanel Spacing="16">
-                                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="印刷标记" />
-                                    <ToggleSwitch
-                                        Header="裁切标记"
-                                        IsOn="{Binding ShowCropMarks, Mode=TwoWay}"
-                                        OffContent="隐藏"
-                                        OnContent="显示" />
-                                    <TextBlock Style="{StaticResource HintStyle}" Text="标出容器边界的裁切位置。" />
-                                    <ToggleSwitch
-                                        Header="容器之间的标记"
-                                        IsOn="{Binding ShowInnerMarks, Mode=TwoWay}"
-                                        OffContent="仅显示版面外缘"
-                                        OnContent="显示" />
-                                    <NumberBox
-                                        Header="标记长度 (mm)"
-                                        Minimum="0"
-                                        SmallChange="0.1"
-                                        Style="{StaticResource SettingNumberStyle}"
-                                        Value="{Binding CropMarkLength, Mode=TwoWay}" />
-                                    <NumberBox
-                                        Header="离角距离 (mm)"
-                                        Minimum="0"
-                                        SmallChange="0.1"
-                                        Style="{StaticResource SettingNumberStyle}"
-                                        Value="{Binding CropMarkOffset, Mode=TwoWay}" />
-                                    <TextBlock Style="{StaticResource HintStyle}" Text="裁切标记位于容器间隙或纸张外边距中，空间不足时缩短或省略。" />
-                                    <ToggleSwitch
-                                        Header="显示边框"
-                                        AutomationProperties.AutomationId="PdfLayOutShowCellBorders"
-                                        IsOn="{x:Bind ViewModel.ShowCellBorders, Mode=TwoWay}"
-                                        OffContent="隐藏"
-                                        OnContent="显示" />
-                                    <TextBlock Style="{StaticResource HintStyle}" Text="显示容器的黑色细边框，并随 PDF 导出和打印，方便校对。" />
-                                </StackPanel>
-                            </ScrollViewer>
-                        </PivotItem>
-                        <PivotItem Header="预览">
-                            <ScrollViewer
-                                Padding="4,8,12,16"
-                                HorizontalScrollMode="Disabled"
-                                VerticalScrollBarVisibility="Auto">
-                                <StackPanel Spacing="16">
-                                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="预览" />
-                                    <ToggleSwitch
-                                        Header="页面内容"
-                                        IsOn="{Binding ShowPageContent, Mode=TwoWay}"
-                                        OffContent="使用空框代替"
-                                        OnContent="显示页面稿件" />
-                                </StackPanel>
-                            </ScrollViewer>
-                        </PivotItem>
-                    </Pivot>
-
+                    <TextBlock
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="将 PDF 页面排列到印张上 · 单位：毫米 (mm)" />
                     <Border
-                        Grid.Row="2"
-                        Padding="14"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="10">
-                        <Grid ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                FontSize="16"
-                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                Glyph="&#xE946;" />
-                            <TextBlock Grid.Column="1" Style="{StaticResource HintStyle}" Text="{Binding StatusMessage}" TextWrapping="Wrap" />
-                        </Grid>
+                        Grid.Column="2"
+                        Padding="12,5"
+                        Background="{ThemeResource AccentFillColorTertiaryBrush}"
+                        CornerRadius="12">
+                        <TextBlock Style="{StaticResource HintStyle}" Text="重复拼版 · 毫米" />
                     </Border>
                 </Grid>
 
-                <!--  右侧：印张工具栏与纸张示意。  -->
-                <Grid Grid.Column="1">
-                    <Border
-                        Padding="14"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="16">
-                        <Grid RowSpacing="12">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
+                <Grid Grid.Row="1" ColumnSpacing="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="340" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  左侧：与参考网页相同的五组设置。  -->
+                    <Grid RowSpacing="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Spacing="6">
                             <Grid ColumnSpacing="8">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                    <Button
-                                        AutomationProperties.AutomationId="PdfLayOutPreviousPage"
-                                        AutomationProperties.Name="上一页"
-                                        Command="{x:Bind ViewModel.PreviousPageCommand}"
-                                        ToolTipService.ToolTip="上一页">
-                                        <FontIcon Glyph="&#xE76B;" FontSize="12" />
-                                    </Button>
-                                    <ComboBox
-                                        Width="64"
-                                        AutomationProperties.AutomationId="PdfLayOutPageSelector"
-                                        AutomationProperties.Name="预览源页"
-                                        IsEnabled="{x:Bind ViewModel.CanSelectPage, Mode=OneWay}"
-                                        ItemsSource="{Binding SourcePages}"
-                                        SelectedIndex="{Binding SelectedPageIndex, Mode=TwoWay}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate x:DataType="local:PdfLayOutSourcePage">
-                                                <TextBlock Text="{x:Bind PageNumber}" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                    <TextBlock Text="{Binding PageCountText}" VerticalAlignment="Center" Margin="4,0" />
-                                    <Button
-                                        AutomationProperties.AutomationId="PdfLayOutNextPage"
-                                        AutomationProperties.Name="下一页"
-                                        Command="{x:Bind ViewModel.NextPageCommand}"
-                                        ToolTipService.ToolTip="下一页">
-                                        <FontIcon Glyph="&#xE76C;" FontSize="12" />
-                                    </Button>
-                                </StackPanel>
-                                <StackPanel
+                                <ComboBox
+                                    x:Name="PresetSelector"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.AutomationId="PdfLayOutPresetSelector"
+                                    AutomationProperties.Name="选择拼版配置"
+                                    DisplayMemberPath="DisplayName"
+                                    Header="拼版配置"
+                                    IsEnabled="{x:Bind ViewModel.CanManagePresets, Mode=OneWay}"
+                                    ItemsSource="{x:Bind ViewModel.Presets, Mode=OneWay}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedPreset, Mode=OneWay}"
+                                    SelectionChanged="PresetSelector_SelectionChanged" />
+                                <Button
                                     Grid.Column="1"
-                                    HorizontalAlignment="Center"
-                                    Orientation="Horizontal"
-                                    Spacing="4">
-                                    <Button
-                                        x:Name="PreviewZoomOutButton"
-                                        AutomationProperties.AutomationId="PdfLayOutZoomOut"
-                                        AutomationProperties.Name="缩小"
-                                        Click="PreviewZoomOut_Click"
-                                        ToolTipService.ToolTip="缩小">
-                                        <FontIcon FontSize="14" Glyph="&#xE738;" />
-                                    </Button>
-                                    <Button
-                                        x:Name="PreviewZoomButton"
-                                        MinWidth="64"
-                                        AutomationProperties.AutomationId="PdfLayOutFitToWindow"
-                                        AutomationProperties.Name="适应窗口"
-                                        Content="100%"
-                                        Click="PreviewFit_Click"
-                                        ToolTipService.ToolTip="适应窗口并居中；仅调整屏幕预览" />
-                                    <Button
-                                        x:Name="PreviewZoomInButton"
-                                        AutomationProperties.AutomationId="PdfLayOutZoomIn"
-                                        AutomationProperties.Name="放大"
-                                        Click="PreviewZoomIn_Click"
-                                        ToolTipService.ToolTip="放大">
-                                        <FontIcon FontSize="14" Glyph="&#xE710;" />
-                                    </Button>
-                                </StackPanel>
-                                <StackPanel
-                                    Grid.Column="2"
-                                    Orientation="Horizontal"
-                                    Spacing="8">
-
-
-                                    <Button
-                                        AutomationProperties.AutomationId="PdfLayOutPrint"
-                                        AutomationProperties.Name="打印"
-                                        Command="{x:Bind ViewModel.PrintCommand}"
-                                        Style="{StaticResource AccentButtonStyle}"
-                                        ToolTipService.ToolTip="打开系统打印窗口，按实际尺寸打印。请选择与印张一致的纸张。">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <FontIcon FontSize="14" Glyph="&#xE74E;" />
-                                            <TextBlock Text="打印" />
-                                        </StackPanel>
-                                    </Button>
-
-                                    <Button
-                                        AutomationProperties.AutomationId="PdfLayOutExport"
-                                        AutomationProperties.Name="导出拼版 PDF"
-                                        Click="ExportPdf_Click"
-                                        IsEnabled="{x:Bind ViewModel.CanExport, Mode=OneWay}"
-                                        Style="{StaticResource AccentButtonStyle}"
-                                        ToolTipService.ToolTip="按当前版式导出整份文档，保留源页面的矢量内容。">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <FontIcon FontSize="14" Glyph="&#xE74E;" />
-                                            <TextBlock Text="导出" />
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
+                                    MinWidth="70"
+                                    VerticalAlignment="Bottom"
+                                    AutomationProperties.AutomationId="PdfLayOutManagePresets"
+                                    Content="管理"
+                                    IsEnabled="{x:Bind ViewModel.CanManagePresets, Mode=OneWay}">
+                                    <Button.Flyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="PdfLayOutAddPreset"
+                                                Click="AddPreset_Click"
+                                                Text="新增配置（保存当前版式）" />
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="PdfLayOutSavePreset"
+                                                Command="{x:Bind ViewModel.SavePresetCommand}"
+                                                Text="保存当前配置" />
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="PdfLayOutRenamePreset"
+                                                Click="RenamePreset_Click"
+                                                IsEnabled="{x:Bind ViewModel.CanLoadPreset, Mode=OneWay}"
+                                                Text="重命名" />
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="PdfLayOutDeletePreset"
+                                                Click="DeletePreset_Click"
+                                                IsEnabled="{x:Bind ViewModel.CanDeletePreset, Mode=OneWay}"
+                                                Text="删除" />
+                                            <MenuFlyoutSeparator />
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="PdfLayOutRefreshPresets"
+                                                Command="{x:Bind ViewModel.RefreshPresetsCommand}"
+                                                Text="刷新配置列表" />
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
                             </Grid>
-
-                            <Border
-                                Grid.Row="1"
-                                MinHeight="400"
-                                AutomationProperties.Name="PDF 拼版预览"
-                                Background="{ThemeResource ControlAltFillColorSecondaryBrush}"
-                                CornerRadius="8">
-                                <Grid x:Name="PreviewHost" Background="Transparent">
+                            <TextBlock Style="{StaticResource HintStyle}" Text="{x:Bind ViewModel.PresetHint, Mode=OneWay}" />
+                        </StackPanel>
+                        <Pivot
+                            x:Name="SettingsTabs"
+                            Grid.Row="1"
+                            AutomationProperties.AutomationId="PdfLayOutSettingsTabs"
+                            AutomationProperties.Name="拼版设置分类"
+                            SelectedIndex="{Binding SelectedSection, Mode=TwoWay}">
+                            <Pivot.Resources>
+                                <x:Double x:Key="PivotHeaderItemFontSize">14</x:Double>
+                                <Thickness x:Key="PivotHeaderItemMargin">8,0,8,0</Thickness>
+                            </Pivot.Resources>
+                            <PivotItem Header="源文件">
                                 <ScrollViewer
-                                    x:Name="PreviewScroller"
-                                    AutomationProperties.AutomationId="PdfLayOutPreviewViewport"
-                                    AutomationProperties.Name="拼版视图，Ctrl 加滚轮缩放，按住鼠标中键拖动"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    HorizontalScrollMode="Enabled"
-                                    VerticalScrollMode="Enabled"
-                                    HorizontalScrollBarVisibility="Auto"
-                                    VerticalScrollBarVisibility="Auto"
-                                    IsHorizontalScrollChainingEnabled="False"
-                                    IsVerticalScrollChainingEnabled="False"
-                                    IsZoomChainingEnabled="False"
-                                    IsTabStop="True"
-                                    MinZoomFactor="0.1"
-                                    MaxZoomFactor="8"
-                                    ZoomMode="Enabled"
-                                    SizeChanged="PreviewScroller_SizeChanged"
-                                    ViewChanged="PreviewScroller_ViewChanged">
-                                    <Grid x:Name="PreviewContent" Padding="24" UseLayoutRounding="False">
-                                    <Grid
-                                        x:Name="PaperSurface"
-                                        UseLayoutRounding="False"
-                                        Background="{ThemeResource ImposerPaperBrush}">
-                                        <Canvas UseLayoutRounding="False">
-                                            <Grid x:Name="PreviewGrid" UseLayoutRounding="False" AutomationProperties.Name="重复拼版网格" />
-                                        </Canvas>
-                                        <Canvas x:Name="PrintMarksCanvas" UseLayoutRounding="False" IsHitTestVisible="False" AutomationProperties.Name="印刷标记和容器边框" />
-                                        <Border
-                                            BorderBrush="{ThemeResource ImposerPaperStrokeBrush}"
-                                            BorderThickness="1"
-                                            IsHitTestVisible="False" />
-                                    </Grid>
-                                    </Grid>
-                                </ScrollViewer>
-                                <Border
-                                    MaxWidth="360"
-                                    Padding="16"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.HasPreviewMessage), Mode=OneWay}">
-                                    <StackPanel Spacing="12">
-                                        <ProgressRing
-                                            Width="28" Height="28"
-                                            IsActive="{x:Bind ViewModel.IsRenderingPreview, Mode=OneWay}"
-                                            Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.IsRenderingPreview), Mode=OneWay}" />
-                                        <TextBlock Text="{Binding PreviewMessage}" TextWrapping="Wrap" TextAlignment="Center" />
+                                    Padding="4,8,12,16"
+                                    HorizontalScrollMode="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="20">
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="源 PDF" />
+                                            <Button
+                                                Padding="16,24"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                AutomationProperties.AutomationId="PdfLayOutChooseSource"
+                                                AutomationProperties.Name="选择或替换源 PDF"
+                                                Click="ChooseSource_Click"
+                                                IsEnabled="{x:Bind ViewModel.CanLoadDocument, Mode=OneWay}"
+                                                ToolTipService.ToolTip="选择 PDF，或将一个 PDF 文件拖入页面。">
+                                                <StackPanel HorizontalAlignment="Center" Spacing="10">
+                                                    <FontIcon
+                                                        FontSize="28"
+                                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                        Glyph="&#xE8A5;" />
+                                                    <TextBlock
+                                                        HorizontalAlignment="Center"
+                                                        FontWeight="SemiBold"
+                                                        Text="{Binding FileName}" />
+                                                    <TextBlock
+                                                        HorizontalAlignment="Center"
+                                                        Style="{StaticResource HintStyle}"
+                                                        Text="{Binding FileDetails}" />
+                                                    <TextBlock
+                                                        HorizontalAlignment="Center"
+                                                        Style="{StaticResource HintStyle}"
+                                                        Text="拖入另一个文件，或点击替换" />
+                                                </StackPanel>
+                                            </Button>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button
+                                                    AutomationProperties.AutomationId="PdfLayOutRefreshPreview"
+                                                    Command="{x:Bind ViewModel.RefreshPreviewCommand}"
+                                                    Content="刷新预览" />
+                                                <Button
+                                                    AutomationProperties.AutomationId="PdfLayOutCancel"
+                                                    Command="{x:Bind ViewModel.CancelOperationCommand}"
+                                                    Content="取消加载 / 预览" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="裁切源 PDF" />
+                                            <TextBlock Style="{StaticResource HintStyle}" Text="每页在放置前先裁切；文件本身不会改动。" />
+                                            <Grid ColumnSpacing="12" RowSpacing="10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <NumberBox
+                                                    Header="上 (mm)"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding CropTop, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Column="1"
+                                                    Header="右 (mm)"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding CropRight, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Row="1"
+                                                    Header="下 (mm)"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding CropBottom, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Row="1"
+                                                    Grid.Column="1"
+                                                    Header="左 (mm)"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding CropLeft, Mode=TwoWay}" />
+                                            </Grid>
+                                            <TextBlock Style="{StaticResource HintStyle}" Text="{Binding TrimmedPageSummary}" />
+                                        </StackPanel>
                                     </StackPanel>
-                                </Border>
+                                </ScrollViewer>
+                            </PivotItem>
+                            <PivotItem Header="印张">
+                                <ScrollViewer
+                                    Padding="4,8,12,16"
+                                    HorizontalScrollMode="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="20">
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="开数" />
+                                            <TextBlock Style="{StaticResource HintStyle}" Text="页面要排在哪种纸上。" />
+                                            <ComboBox
+                                                Header="印张尺寸"
+                                                ItemsSource="{Binding PaperSizes}"
+                                                SelectedIndex="{Binding PaperSizeIndex, Mode=TwoWay}"
+                                                Style="{StaticResource SettingComboStyle}" />
+                                            <RadioButtons
+                                                Header="方向"
+                                                MaxColumns="2"
+                                                SelectedIndex="{Binding OrientationIndex, Mode=TwoWay}">
+                                                <x:String>竖向</x:String>
+                                                <x:String>横向</x:String>
+                                            </RadioButtons>
+                                            <Grid ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <NumberBox
+                                                    Header="宽"
+                                                    Minimum="1"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding SheetWidth, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Column="1"
+                                                    Header="高"
+                                                    Minimum="1"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding SheetHeight, Mode=TwoWay}" />
+                                            </Grid>
+                                        </StackPanel>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="印张页边距" />
+                                            <TextBlock Style="{StaticResource HintStyle}" Text="印张边缘不印刷的区域。" />
+                                            <Grid ColumnSpacing="12" RowSpacing="10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <NumberBox
+                                                    Header="上"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding MarginTop, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Column="1"
+                                                    Header="右"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding MarginRight, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Row="1"
+                                                    Header="下"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding MarginBottom, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Row="1"
+                                                    Grid.Column="1"
+                                                    Header="左"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding MarginLeft, Mode=TwoWay}" />
+                                            </Grid>
+                                        </StackPanel>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="标签位移" />
+                                            <TextBlock Style="{StaticResource HintStyle}" Text="相对容器内的居中位置偏移，超出容器的部分会被裁切。" />
+                                            <Grid ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <NumberBox
+                                                    Header="横向"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding OffsetX, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Column="1"
+                                                    Header="纵向"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding OffsetY, Mode=TwoWay}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </PivotItem>
+                            <PivotItem Header="版式">
+                                <ScrollViewer
+                                    Padding="4,8,12,16"
+                                    HorizontalScrollMode="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="20">
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="方式" />
+                                            <ComboBox
+                                                Header="拼版方式"
+                                                SelectedIndex="0"
+                                                Style="{StaticResource SettingComboStyle}">
+                                                <x:String>重复拼版</x:String>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="网格" />
+                                            <ToggleSwitch
+                                                Header="自动"
+                                                IsOn="{Binding IsAutomaticGrid, Mode=TwoWay}"
+                                                OffContent="手动指定行列"
+                                                OnContent="按页面原始尺寸自动排列" />
+                                            <Grid ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <NumberBox
+                                                    Header="列"
+                                                    IsEnabled="{x:Bind ViewModel.CanEditGrid, Mode=OneWay}"
+                                                    Maximum="100"
+                                                    Minimum="1"
+                                                    SmallChange="1"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding Columns, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Column="1"
+                                                    Header="行"
+                                                    IsEnabled="{x:Bind ViewModel.CanEditGrid, Mode=OneWay}"
+                                                    Maximum="100"
+                                                    Minimum="1"
+                                                    SmallChange="1"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding Rows, Mode=TwoWay}" />
+                                            </Grid>
+                                        </StackPanel>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="间距" />
+                                            <TextBlock Style="{StaticResource HintStyle}" Text="相邻容器之间的空隙，标签默认居中放置在容器内。" />
+                                            <Grid ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <NumberBox
+                                                    Header="横向"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding HorizontalGap, Mode=TwoWay}" />
+                                                <NumberBox
+                                                    Grid.Column="1"
+                                                    Header="纵向"
+                                                    Minimum="0"
+                                                    Style="{StaticResource SettingNumberStyle}"
+                                                    Value="{Binding VerticalGap, Mode=TwoWay}" />
+                                            </Grid>
+                                        </StackPanel>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="缩放" />
+                                            <ComboBox
+                                                Header="缩放方式"
+                                                ItemsSource="{Binding ScaleModes}"
+                                                SelectedIndex="{Binding ScaleModeIndex, Mode=TwoWay}"
+                                                Style="{StaticResource SettingComboStyle}" />
+                                            <NumberBox
+                                                Header="缩放比例 (%)"
+                                                Maximum="1000"
+                                                Minimum="1"
+                                                Style="{StaticResource SettingNumberStyle}"
+                                                Value="{Binding ScalePercent, Mode=TwoWay}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </PivotItem>
+                            <PivotItem Header="标记">
+                                <ScrollViewer
+                                    Padding="4,8,12,16"
+                                    HorizontalScrollMode="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="16">
+                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="印刷标记" />
+                                        <ToggleSwitch
+                                            Header="裁切标记"
+                                            IsOn="{Binding ShowCropMarks, Mode=TwoWay}"
+                                            OffContent="隐藏"
+                                            OnContent="显示" />
+                                        <TextBlock Style="{StaticResource HintStyle}" Text="标出容器边界的裁切位置。" />
+                                        <ToggleSwitch
+                                            Header="容器之间的标记"
+                                            IsOn="{Binding ShowInnerMarks, Mode=TwoWay}"
+                                            OffContent="仅显示版面外缘"
+                                            OnContent="显示" />
+                                        <NumberBox
+                                            Header="标记长度 (mm)"
+                                            Minimum="0"
+                                            SmallChange="0.1"
+                                            Style="{StaticResource SettingNumberStyle}"
+                                            Value="{Binding CropMarkLength, Mode=TwoWay}" />
+                                        <NumberBox
+                                            Header="离角距离 (mm)"
+                                            Minimum="0"
+                                            SmallChange="0.1"
+                                            Style="{StaticResource SettingNumberStyle}"
+                                            Value="{Binding CropMarkOffset, Mode=TwoWay}" />
+                                        <TextBlock Style="{StaticResource HintStyle}" Text="裁切标记位于容器间隙或纸张外边距中，空间不足时缩短或省略。" />
+                                        <ToggleSwitch
+                                            AutomationProperties.AutomationId="PdfLayOutShowCellBorders"
+                                            Header="显示边框"
+                                            IsOn="{x:Bind ViewModel.ShowCellBorders, Mode=TwoWay}"
+                                            OffContent="隐藏"
+                                            OnContent="显示" />
+                                        <TextBlock Style="{StaticResource HintStyle}" Text="显示容器的黑色细边框，并随 PDF 导出和打印，方便校对。" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </PivotItem>
+                            <PivotItem Header="预览">
+                                <ScrollViewer
+                                    Padding="4,8,12,16"
+                                    HorizontalScrollMode="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="16">
+                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="预览" />
+                                        <ToggleSwitch
+                                            Header="页面内容"
+                                            IsOn="{Binding ShowPageContent, Mode=TwoWay}"
+                                            OffContent="使用空框代替"
+                                            OnContent="显示页面稿件" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </PivotItem>
+                        </Pivot>
+
+                        <Border
+                            Grid.Row="2"
+                            Padding="14"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    FontSize="16"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Glyph="&#xE946;" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    Style="{StaticResource HintStyle}"
+                                    Text="{Binding StatusMessage}"
+                                    TextWrapping="Wrap" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!--  右侧：印张工具栏与纸张示意。  -->
+                    <Grid Grid.Column="1">
+                        <Border
+                            Padding="14"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="16">
+                            <Grid RowSpacing="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="4">
+                                        <Button
+                                            AutomationProperties.AutomationId="PdfLayOutPreviousPage"
+                                            AutomationProperties.Name="上一页"
+                                            Command="{x:Bind ViewModel.PreviousPageCommand}"
+                                            ToolTipService.ToolTip="上一页">
+                                            <FontIcon FontSize="12" Glyph="&#xE76B;" />
+                                        </Button>
+                                        <ComboBox
+                                            Width="64"
+                                            AutomationProperties.AutomationId="PdfLayOutPageSelector"
+                                            AutomationProperties.Name="预览源页"
+                                            IsEnabled="{x:Bind ViewModel.CanSelectPage, Mode=OneWay}"
+                                            ItemsSource="{Binding SourcePages}"
+                                            SelectedIndex="{Binding SelectedPageIndex, Mode=TwoWay}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="local:PdfLayOutSourcePage">
+                                                    <TextBlock Text="{x:Bind PageNumber}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <TextBlock
+                                            Margin="4,0"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding PageCountText}" />
+                                        <Button
+                                            AutomationProperties.AutomationId="PdfLayOutNextPage"
+                                            AutomationProperties.Name="下一页"
+                                            Command="{x:Bind ViewModel.NextPageCommand}"
+                                            ToolTipService.ToolTip="下一页">
+                                            <FontIcon FontSize="12" Glyph="&#xE76C;" />
+                                        </Button>
+                                    </StackPanel>
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        HorizontalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="4">
+                                        <Button
+                                            x:Name="PreviewZoomOutButton"
+                                            AutomationProperties.AutomationId="PdfLayOutZoomOut"
+                                            AutomationProperties.Name="缩小"
+                                            Click="PreviewZoomOut_Click"
+                                            ToolTipService.ToolTip="缩小">
+                                            <FontIcon FontSize="14" Glyph="&#xE738;" />
+                                        </Button>
+                                        <Button
+                                            x:Name="PreviewZoomButton"
+                                            MinWidth="64"
+                                            AutomationProperties.AutomationId="PdfLayOutFitToWindow"
+                                            AutomationProperties.Name="适应窗口"
+                                            Click="PreviewFit_Click"
+                                            Content="100%"
+                                            ToolTipService.ToolTip="适应窗口并居中；仅调整屏幕预览" />
+                                        <Button
+                                            x:Name="PreviewZoomInButton"
+                                            AutomationProperties.AutomationId="PdfLayOutZoomIn"
+                                            AutomationProperties.Name="放大"
+                                            Click="PreviewZoomIn_Click"
+                                            ToolTipService.ToolTip="放大">
+                                            <FontIcon FontSize="14" Glyph="&#xE710;" />
+                                        </Button>
+                                    </StackPanel>
+                                    <StackPanel
+                                        Grid.Column="2"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
+
+
+                                        <Button
+                                            AutomationProperties.AutomationId="PdfLayOutPrint"
+                                            AutomationProperties.Name="打印"
+                                            Command="{x:Bind ViewModel.PrintCommand}"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            ToolTipService.ToolTip="打开系统打印窗口，按实际尺寸打印。请选择与印张一致的纸张。">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="14" Glyph="&#xE749;" />
+                                                <TextBlock Text="打印" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button
+                                            AutomationProperties.AutomationId="PdfLayOutExport"
+                                            AutomationProperties.Name="导出拼版 PDF"
+                                            Click="ExportPdf_Click"
+                                            IsEnabled="{x:Bind ViewModel.CanExport, Mode=OneWay}"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            ToolTipService.ToolTip="按当前版式导出整份文档，保留源页面的矢量内容。">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="14" Glyph="&#xE74E;" />
+                                                <TextBlock Text="导出" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
                                 </Grid>
-                            </Border>
-                        </Grid>
-                    </Border>
+
+                                <Border
+                                    Grid.Row="1"
+                                    MinHeight="400"
+                                    AutomationProperties.Name="PDF 拼版预览"
+                                    Background="{ThemeResource ControlAltFillColorSecondaryBrush}"
+                                    CornerRadius="8">
+                                    <Grid x:Name="PreviewHost" Background="Transparent">
+                                        <ScrollViewer
+                                            x:Name="PreviewScroller"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center"
+                                            AutomationProperties.AutomationId="PdfLayOutPreviewViewport"
+                                            AutomationProperties.Name="拼版视图，Ctrl 加滚轮缩放，按住鼠标中键拖动"
+                                            HorizontalScrollBarVisibility="Auto"
+                                            HorizontalScrollMode="Enabled"
+                                            IsHorizontalScrollChainingEnabled="False"
+                                            IsTabStop="True"
+                                            IsVerticalScrollChainingEnabled="False"
+                                            IsZoomChainingEnabled="False"
+                                            MaxZoomFactor="8"
+                                            MinZoomFactor="0.1"
+                                            SizeChanged="PreviewScroller_SizeChanged"
+                                            VerticalScrollBarVisibility="Auto"
+                                            VerticalScrollMode="Enabled"
+                                            ViewChanged="PreviewScroller_ViewChanged"
+                                            ZoomMode="Enabled">
+                                            <Grid
+                                                x:Name="PreviewContent"
+                                                Padding="24"
+                                                UseLayoutRounding="False">
+                                                <Grid
+                                                    x:Name="PaperSurface"
+                                                    Background="{ThemeResource ImposerPaperBrush}"
+                                                    UseLayoutRounding="False">
+                                                    <Canvas UseLayoutRounding="False">
+                                                        <Grid
+                                                            x:Name="PreviewGrid"
+                                                            AutomationProperties.Name="重复拼版网格"
+                                                            UseLayoutRounding="False" />
+                                                    </Canvas>
+                                                    <Canvas
+                                                        x:Name="PrintMarksCanvas"
+                                                        AutomationProperties.Name="印刷标记和容器边框"
+                                                        IsHitTestVisible="False"
+                                                        UseLayoutRounding="False" />
+                                                    <Border
+                                                        BorderBrush="{ThemeResource ImposerPaperStrokeBrush}"
+                                                        BorderThickness="1"
+                                                        IsHitTestVisible="False" />
+                                                </Grid>
+                                            </Grid>
+                                        </ScrollViewer>
+                                        <Border
+                                            MaxWidth="360"
+                                            Padding="16"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.HasPreviewMessage), Mode=OneWay}">
+                                            <StackPanel Spacing="12">
+                                                <ProgressRing
+                                                    Width="28"
+                                                    Height="28"
+                                                    IsActive="{x:Bind ViewModel.IsRenderingPreview, Mode=OneWay}"
+                                                    Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.IsRenderingPreview), Mode=OneWay}" />
+                                                <TextBlock
+                                                    Text="{Binding PreviewMessage}"
+                                                    TextAlignment="Center"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Grid>
-        </Grid>
-    </ScrollViewer>
-    <!-- 打印页独立布局；不受页面的视图缩放、平移或主题影响。 -->
-    <Canvas x:Name="PrintCanvas" Width="0" Height="0" Opacity="0" IsHitTestVisible="False" />
+        </ScrollViewer>
+        <!--  打印页独立布局；不受页面的视图缩放、平移或主题影响。  -->
+        <Canvas
+            x:Name="PrintCanvas"
+            Width="0"
+            Height="0"
+            IsHitTestVisible="False"
+            Opacity="0" />
     </Grid>
 </Page>

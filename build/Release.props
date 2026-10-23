@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <!-- 成功生成绿色版 ZIP 后递增；普通编译不修改版本。 -->
+    <Version>1.0.8</Version>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Authors>YanWei</Authors>
+    <Company>YanWei</Company>
+    <Copyright>Copyright © 2026 YanWei</Copyright>
+    <RepositoryUrl>https://github.com/yanwei175/BigDvToolBox</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+  </PropertyGroup>
+</Project>

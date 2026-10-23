@@ -1,39 +1,39 @@
 # BigDvToolBox
 
-一个用于学习 WinUI 3 的个人桌面工具箱。
+YanWei 开发的 Windows 桌面工具箱，使用 C# / .NET 10 / WinUI 3（Windows App SDK 2.5）。
 
-## 技术栈
+包含 PDF 拼版与矢量导出、系统打印、PDF 字体转曲、OCR 文件重命名、
+图片批处理、单位转换等工具。
 
-- .NET 10
-- C# / XAML
-- WinUI 3
-- Windows App SDK 1.8
-- 单项目 MSIX 打包
+## 下载
 
-## 环境要求
+从 [GitHub Releases](https://github.com/yanwei175/BigDvToolBox/releases) 下载
+BigDvToolBox-<版本>-win-x64.zip，解压后运行 BigDvToolBox.exe，保留目录中的全部文件。
 
-- Windows 10 2004（Build 19041）或更高版本
-- .NET SDK 10.0.302 或兼容的 10.0 Feature Band
-- Visual Studio 2026（安装 Windows 应用开发相关组件），或使用 .NET CLI
-- Windows 开发者模式
+支持 Windows 10 1809 及更高版本的 x64 系统，已包含 .NET 和 Windows App SDK。
+OCR 需要 [Microsoft Visual C++ x64 运行库](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist)。
+用户配置保存在本地应用数据目录。新版通过 Releases 手动下载，软件没有自动更新。
 
-## 开始使用
+## 开发与发布
 
-```powershell
-dotnet restore BigDvToolBox.slnx
-dotnet build BigDvToolBox.slnx
-dotnet run --project src/BigDvToolBox.App/BigDvToolBox.App.csproj -p:Platform=x64
-```
+需要 .NET 10 SDK、Visual Studio 2026 的 Windows/WinUI 开发组件和 Windows SDK。
+代码位于 src/BigDvToolBox.App，主窗口的 ToolPages 注册表维护工具导航。
 
-应用代码位于 `src/BigDvToolBox.App`。仓库专用的 Codex Skill 放在
-`.agents/skills/<skill-name>/SKILL.md`，项目级 Codex 配置放在
-`.codex/config.toml`。
+    dotnet restore BigDvToolBox.slnx
+    .\.agents\skills\winui3-full-skill\winui-dev-workflow\BuildAndRun.ps1 -Project src\BigDvToolBox.App\BigDvToolBox.App.csproj -UseMSBuild
 
-## 添加工具页面
+在 VS 中选择 Portable-x64 发布配置即可生成绿色版 ZIP 并递增补丁版本号。
+命令行和 GitHub Release 附件说明见 [build/README.md](build/README.md)。
 
-主窗口采用 `NavigationView + TabView` 混合导航：左侧导航负责发现工具，
-右侧标签页保留已打开的工具。每个工具默认只有一个标签实例。
+## 许可与反馈
 
-创建新的 WinUI `Page` 后，在 `MainWindow.xaml.cs` 的 `ToolPages` 注册表中
-加入一条 `ToolPageDefinition` 即可。NavigationView 和 TabView 会共用注册项的
-ID、标题、图标和页面类型，无需分别维护两套导航代码。 
+Copyright © 2026 YanWei。本项目原创代码按
+[GNU AGPL v3 或更高版本](LICENSE)发布，不附带任何担保。
+第三方代码、库和数据保留原作者版权与各自许可，见
+[第三方声明](src/BigDvToolBox.App/THIRD-PARTY-NOTICES.md)。
+
+PDF 字体转曲使用未修改的 Ghostscript 10.07.1（AGPL-3.0-or-later）；
+仓库包含 x86/x64 DLL，授权说明见 [third_party/ghostscript](third_party/ghostscript)。
+发行版一并提供本项目对应源码和该版本 Ghostscript 完整源码。
+
+问题和建议请提交到 [Issues](https://github.com/yanwei175/BigDvToolBox/issues)。
