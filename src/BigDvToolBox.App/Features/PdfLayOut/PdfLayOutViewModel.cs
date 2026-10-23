@@ -188,12 +188,17 @@ public partial class PdfLayOutViewModel : ObservableObject
         }, cancellationToken);
 
     [RelayCommand(CanExecute = nameof(CanPrint))]
-    private Task PrintAsync(CancellationToken cancellationToken) =>
-        RunOperationAsync(PdfLayOutOperation.Printing, async token =>
+    private async Task PrintAsync(CancellationToken cancellationToken)
+    {
+        if (!CanPrint) return;
+        await RunOperationAsync(PdfLayOutOperation.Printing, async token =>
         {
             PdfLayOutPrintResult result = await _printService!.PrintAsync(CreateJob(), token);
             StatusMessage = result == PdfLayOutPrintResult.Submitted ? "已提交打印任务。" : "已取消打印。";
         }, cancellationToken);
+        if (_printService is IPdfLayOutPrintDiagnosticsProvider { LastDiagnosticPath: { } path })
+            StatusMessage += $"\n打印诊断日志：{path}";
+    }
 
     [RelayCommand(CanExecute = nameof(CanCancelOperation))]
     private void CancelOperation()

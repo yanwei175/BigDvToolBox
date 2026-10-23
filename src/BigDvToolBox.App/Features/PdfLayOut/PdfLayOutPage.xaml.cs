@@ -83,6 +83,7 @@ public sealed partial class PdfLayOutPage : Page
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
         _isActive = false;
+        _cellDragPress = null;
         if (ViewModel.PendingLayoutChange is { } pending) _ = ViewModel.ResolveLayoutChangeAsync(pending, false);
         _presetDialog?.Hide();
         EndPreviewPan();

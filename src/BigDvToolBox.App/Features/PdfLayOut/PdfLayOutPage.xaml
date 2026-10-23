@@ -215,6 +215,14 @@
                                 </Button>
                             </Grid>
                             <TextBlock Style="{StaticResource HintStyle}" Text="{x:Bind ViewModel.PresetHint, Mode=OneWay}" />
+                            <ComboBox
+                                Margin="0,8,0,0"
+                                AutomationProperties.AutomationId="PdfLayOutMode"
+                                Header="拼版方式"
+                                IsEnabled="{x:Bind local:PdfLayOutPage.Not(ViewModel.IsBusy), Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.Modes, Mode=OneTime}"
+                                SelectedIndex="{x:Bind ViewModel.ModeIndex, Mode=TwoWay}"
+                                Style="{StaticResource SettingComboStyle}" />
                         </StackPanel>
                         <Pivot
                             x:Name="SettingsTabs"
@@ -424,15 +432,6 @@
                                     VerticalScrollBarVisibility="Auto">
                                     <StackPanel Spacing="20">
                                         <StackPanel Spacing="12">
-                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="方式" />
-                                            <ComboBox Header="拼版方式" Style="{StaticResource SettingComboStyle}"
-                                                          ItemsSource="{x:Bind ViewModel.Modes, Mode=OneTime}"
-                                                          SelectedIndex="{x:Bind ViewModel.ModeIndex, Mode=TwoWay}"
-                                                          IsEnabled="{x:Bind local:PdfLayOutPage.Not(ViewModel.IsBusy), Mode=OneWay}"
-                                                          AutomationProperties.AutomationId="PdfLayOutMode" />
-                                        </StackPanel>
-                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                                        <StackPanel Spacing="12">
                                             <TextBlock Style="{StaticResource SectionTitleStyle}" Text="网格" />
                                             <ToggleSwitch
                                                 Header="自动"
@@ -582,6 +581,7 @@
                                     Grid.Column="1"
                                     Style="{StaticResource HintStyle}"
                                     Text="{Binding StatusMessage}"
+                                    IsTextSelectionEnabled="True"
                                     TextWrapping="Wrap" />
                             </Grid>
                         </Border>

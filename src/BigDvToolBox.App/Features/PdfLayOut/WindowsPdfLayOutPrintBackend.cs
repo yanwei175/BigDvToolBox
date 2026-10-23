@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Printing;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Runtime.InteropServices;
 using Windows.Foundation;
 using Windows.Graphics.Printing;
 using WinRT.Interop;
@@ -15,15 +16,37 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
 {
     public async Task<PdfLayOutPrintResult> PrintAsync(Stream imposedPdf, PdfLayOutJob job, CancellationToken cancellationToken)
     {
+        var diagnostics = new PdfLayOutPrintDiagnostics(job);
+        try { return await PrintAsync(imposedPdf, job, diagnostics, cancellationToken); }
+        catch (Exception exception) { diagnostics.Error("PrintBackend", exception); throw; }
+        finally
+        {
+            if (diagnostics.HasSystemTask) _ = diagnostics.ObserveSystemErrorsAsync();
+            else diagnostics.Dispose();
+        }
+    }
+
+    public async Task<PdfLayOutPrintResult> PrintAsync(Stream imposedPdf, PdfLayOutJob job,
+        PdfLayOutPrintDiagnostics diagnostics, CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         nint window = getWindowHandle();
         if (window == 0) throw new InvalidOperationException("打印窗口尚未就绪。");
         if (!PrintManager.IsSupported()) throw new InvalidOperationException("当前系统不支持打印，请检查打印服务。");
         Panel host = getPrintHost();
         if (!host.DispatcherQueue.HasThreadAccess) throw new InvalidOperationException("请从页面线程发起打印。");
-        using WindowsPdfLayOutPrintRasterizer rasterizer = await WindowsPdfLayOutPrintRasterizer.OpenAsync(imposedPdf, cancellationToken);
+        diagnostics.Capture("Environment.Window", () => new
+        {
+            windowDpi = GetDpiForWindow(window), rasterizationScale = host.XamlRoot?.RasterizationScale,
+            winUIAssembly = typeof(PrintDocument).Assembly.FullName,
+        });
+        WindowsPdfLayOutPrintRasterizer rasterizer;
+        using (diagnostics.Stage("OpenImposedPdf"))
+            rasterizer = await WindowsPdfLayOutPrintRasterizer.OpenAsync(imposedPdf, cancellationToken);
+        using var ownedRasterizer = rasterizer;
+        diagnostics.Record("OpenImposedPdf.Result", new { rasterizer.PageCount });
         if (rasterizer.PageCount != job.Sheets.Count) throw new InvalidDataException("打印文件的印张数量不一致。");
-        await using var session = new PrintSession(job, rasterizer, host, cancellationToken);
+        await using var session = new PrintSession(job, rasterizer, host, diagnostics, cancellationToken);
         return await session.ShowAsync(window);
     }
 
@@ -32,6 +55,7 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
         private readonly PdfLayOutJob _job;
         private readonly WindowsPdfLayOutPrintRasterizer _rasterizer;
         private readonly Panel _host;
+        private readonly PdfLayOutPrintDiagnostics _diagnostics;
         private readonly PrintDocument _document = new();
         private readonly IPrintDocumentSource _source;
         private readonly CancellationTokenSource _lifetime;
@@ -46,9 +70,11 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
         private bool _addingPages;
         private bool _disposed;
 
-        public PrintSession(PdfLayOutJob job, WindowsPdfLayOutPrintRasterizer rasterizer, Panel host, CancellationToken token)
+        public PrintSession(PdfLayOutJob job, WindowsPdfLayOutPrintRasterizer rasterizer, Panel host,
+            PdfLayOutPrintDiagnostics diagnostics, CancellationToken token)
         {
             (_job, _rasterizer, _host) = (job, rasterizer, host);
+            _diagnostics = diagnostics;
             _lifetime = CancellationTokenSource.CreateLinkedTokenSource(token);
             _source = _document.DocumentSource;
             _document.Paginate += Paginate;
@@ -61,13 +87,20 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             _manager = PrintManagerInterop.GetForWindow(window);
             _manager.PrintTaskRequested += PrintTaskRequested;
             using CancellationTokenRegistration registration = _lifetime.Token.Register(() => _completion.TrySetCanceled(_lifetime.Token));
-            if (!await PrintManagerInterop.ShowPrintUIForWindowAsync(window)) return PdfLayOutPrintResult.Cancelled;
+            bool shown;
+            // 此阶段包含用户操作窗口的时间，不能当作纯渲染耗时。
+            using (_diagnostics.Stage("ShowPrintUI", new { includesUserInteraction = true }))
+                shown = await PrintManagerInterop.ShowPrintUIForWindowAsync(window);
+            _diagnostics.Record("ShowPrintUI.Result", new { shown });
+            if (!shown) return PdfLayOutPrintResult.Cancelled;
             // ShowPrintUI 只表示窗口已显示；必须等任务完成通知，才能释放 PDF 和事件。
-            return await _completion.Task;
+            using (_diagnostics.Stage("WaitPrintTaskCompletion", new { includesUserInteractionAndDriverWait = true }))
+                return await _completion.Task;
         }
 
         private void PrintTaskRequested(PrintManager sender, PrintTaskRequestedEventArgs args)
         {
+            _diagnostics.Record("PrintTaskRequested");
             // 系统可能从后台线程请求任务；用 deferral 回到窗口线程，统一事件和资源的生命周期。
             PrintTaskRequestedDeferral deferral = args.Request.GetDeferral();
             if (!_host.DispatcherQueue.TryEnqueue(() =>
@@ -77,21 +110,27 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             }))
             {
                 deferral.Complete();
-                _completion.TrySetException(new InvalidOperationException("打印页面已经关闭。"));
+                Fail("PrintTaskRequested.Dispatch", new InvalidOperationException("打印页面已经关闭。"));
             }
         }
 
         private void CreatePrintTask(PrintTaskRequest request)
         {
+            using var stage = _diagnostics.Stage("CreatePrintTask");
             try
             {
                 if (_printTask is not null) _printTask.Completed -= PrintTaskCompleted;
-                _printTask = request.CreatePrintTask(_job.DisplayName,
+                _printTask = request.CreatePrintTask(_diagnostics.TaskName,
                     sourceRequest =>
                     {
-                        try { sourceRequest.SetSource(_source); }
-                        catch (Exception exception) { _completion.TrySetException(exception); }
+                        try
+                        {
+                            using var setSourceStage = _diagnostics.Stage("SetPrintSource");
+                            sourceRequest.SetSource(_source);
+                        }
+                        catch (Exception exception) { Fail("SetPrintSource", exception); }
                     });
+                _diagnostics.HasSystemTask = true;
                 _printTask.Completed += PrintTaskCompleted;
                 PdfLayOutSize sheet = _job.Settings.SheetSize;
                 _printTask.Options.Orientation = sheet.Width > sheet.Height ? PrintOrientation.Landscape : PrintOrientation.Portrait;
@@ -106,14 +145,20 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
                 _printTask.Options.PageRangeOptions.AllowCurrentPage = false;
                 _printTask.Options.PageRangeOptions.AllowCustomSetOfPages = true;
                 _printTask.Options.DisplayedOptions.Add(StandardPrintTaskOptions.CustomPageRanges);
+                RecordOptions("Requested", _printTask.Options);
             }
-            catch (Exception exception) { _completion.TrySetException(exception); }
+            catch (Exception exception) { Fail("CreatePrintTask", exception); }
         }
 
         private void PrintTaskCompleted(PrintTask sender, PrintTaskCompletedEventArgs args)
         {
+            _diagnostics.Record("PrintTask.Completed", new
+            {
+                completion = args.Completion.ToString(),
+                note = "该回调不提供驱动错误码。Failed 原样记录；Submitted 后的队列失败另查 WindowsPrintEvents。",
+            });
             if (args.Completion == PrintTaskCompletion.Failed)
-                _completion.TrySetException(new InvalidOperationException("系统未能提交打印任务，请检查打印机及纸张设置。"));
+                Fail("PrintTask.Completed", new InvalidOperationException("系统未能提交打印任务，请检查打印机及纸张设置。"));
             else
                 _completion.TrySetResult(args.Completion == PrintTaskCompletion.Submitted
                     ? PdfLayOutPrintResult.Submitted : PdfLayOutPrintResult.Cancelled);
@@ -121,31 +166,35 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
 
         private void Paginate(object sender, PaginateEventArgs args) => DispatchCallback(() =>
         {
+            using var stage = _diagnostics.Stage("Paginate");
             if (_addingPages) return Task.CompletedTask;
             _generation++;
             _options = args.PrintTaskOptions;
+            RecordOptions("Paginate", _options);
             _previewPages.Clear();
             _host.Children.Clear();
             _document.SetPreviewPageCount(_job.Sheets.Count, PreviewPageCountType.Final);
             return Task.CompletedTask;
-        });
+        }, "Paginate");
 
         private void GetPreviewPage(object sender, GetPreviewPageEventArgs args) =>
-            DispatchCallback(() => ShowPreviewPageAsync(args.PageNumber));
+            DispatchCallback(() => ShowPreviewPageAsync(args.PageNumber), "GetPreviewPage");
 
         private async Task ShowPreviewPageAsync(int pageNumber)
         {
+            using var stage = _diagnostics.Stage("PreviewPage", new { page = pageNumber });
             if (_options is null || _addingPages || pageNumber < 1 || pageNumber > _job.Sheets.Count) return;
             long generation = _generation;
             if (_previewPages.TryGetValue(pageNumber, out Canvas? cached))
             {
+                _diagnostics.Record("PreviewPage.CacheHit", new { page = pageNumber });
                 _document.SetPreviewPage(pageNumber, cached);
                 return;
             }
             PrintPageDescription description = _options.GetPageDescription((uint)(pageNumber - 1));
             PdfLayOutSize sheet = _job.Sheets[pageNumber - 1].SheetSize;
             PdfLayOutPrintRasterSize size = PdfLayOutPrintGeometry.CreateRasterSize(sheet, 120);
-            Canvas page = await CreatePageAsync(pageNumber - 1, description, size);
+            Canvas page = await CreatePageAsync(pageNumber - 1, description, size, "Preview");
             if (_disposed || _addingPages || generation != _generation) return;
             if (_previewPages.TryGetValue(pageNumber, out cached))
             {
@@ -164,50 +213,66 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             _document.SetPreviewPage(pageNumber, page);
         }
 
-        private void AddPages(object sender, AddPagesEventArgs args) => DispatchCallback(() => AddPagesAsync(args.PrintTaskOptions));
+        private void AddPages(object sender, AddPagesEventArgs args) => DispatchCallback(() => AddPagesAsync(args.PrintTaskOptions), "AddPages");
 
         private async Task AddPagesAsync(PrintTaskOptions options)
         {
+            using var stage = _diagnostics.Stage("PrepareFinalPages");
             if (_addingPages) return;
             _addingPages = true;
             _generation++;
             _previewPages.Clear();
             _host.Children.Clear();
+            RecordOptions("Final", options);
             IReadOnlyList<PdfLayOutPrintPageRange>? ranges = options.CustomPageRanges.Count == 0 ? null
                 : options.CustomPageRanges.Select(range => new PdfLayOutPrintPageRange(
                     checked((uint)range.FirstPageNumber), checked((uint)range.LastPageNumber))).ToArray();
-            foreach (int index in PdfLayOutPrintGeometry.SelectPages(_job.Sheets.Count, ranges))
+            var selectedPages = PdfLayOutPrintGeometry.SelectPages(_job.Sheets.Count, ranges);
+            _diagnostics.Record("Final.PageSelection", new { pages = selectedPages.Select(index => index + 1).ToArray() });
+            foreach (int index in selectedPages)
             {
+                using var pageStage = _diagnostics.Stage("FinalPage", new { page = index + 1 });
                 _lifetime.Token.ThrowIfCancellationRequested();
                 PrintPageDescription description = options.GetPageDescription((uint)index);
                 double dpi = description.DpiX > 0 && description.DpiY > 0 ? Math.Min(description.DpiX, description.DpiY) : 300;
                 PdfLayOutPrintRasterSize size = PdfLayOutPrintGeometry.CreateRasterSize(_job.Sheets[index].SheetSize, dpi);
-                Canvas page = await CreatePageAsync(index, description, size);
+                Canvas page = await CreatePageAsync(index, description, size, "Final");
                 _lifetime.Token.ThrowIfCancellationRequested();
-                AttachForLayout(page);
+                using (_diagnostics.Stage("FinalPage.Layout", new { page = index + 1 })) AttachForLayout(page);
                 // AddPage 同步提交该页的绘制内容；随后释放视图，避免累积所有页的高分辨率像素。
-                _document.AddPage(page);
+                using (_diagnostics.Stage("FinalPage.Submit", new { page = index + 1 })) _document.AddPage(page);
                 _host.Children.Remove(page);
                 page.Children.Clear();
             }
-            _document.AddPagesComplete();
+            using (_diagnostics.Stage("AddPagesComplete")) _document.AddPagesComplete();
         }
 
-        private async Task<Canvas> CreatePageAsync(int index, PrintPageDescription description, PdfLayOutPrintRasterSize size)
+        private async Task<Canvas> CreatePageAsync(int index, PrintPageDescription description, PdfLayOutPrintRasterSize size, string phase)
         {
+            _diagnostics.RecordPage(phase, index, _job.Sheets[index].SheetSize, description.PageSize.Width, description.PageSize.Height,
+                new(description.ImageableRect.X, description.ImageableRect.Y, description.ImageableRect.Width, description.ImageableRect.Height),
+                description.DpiX, description.DpiY, size);
             CancellationToken token = _lifetime.Token;
             PdfLayOutPrintBitmap pixels;
-            await _renderGate.WaitAsync(token);
-            try { pixels = await _rasterizer.RenderAsync(index, size, token); }
+            using (_diagnostics.Stage("RenderGate.Wait", new { phase, page = index + 1 })) await _renderGate.WaitAsync(token);
+            try
+            {
+                using var stage = _diagnostics.Stage("Rasterize", new { phase, page = index + 1 });
+                pixels = await _rasterizer.RenderAsync(index, size, token, _diagnostics, phase);
+            }
             finally { _renderGate.Release(); }
             token.ThrowIfCancellationRequested();
-            var bitmap = new WriteableBitmap(pixels.Width, pixels.Height);
-            using (Stream buffer = bitmap.PixelBuffer.AsStream())
-                await buffer.WriteAsync(pixels.BgraPixels, token);
-            bitmap.Invalidate();
+            WriteableBitmap bitmap;
+            using (_diagnostics.Stage("CopyToWriteableBitmap", new { phase, page = index + 1, bytes = pixels.BgraPixels.LongLength }))
+            {
+                bitmap = new WriteableBitmap(pixels.Width, pixels.Height);
+                using (Stream buffer = bitmap.PixelBuffer.AsStream()) await buffer.WriteAsync(pixels.BgraPixels, token);
+                bitmap.Invalidate();
+            }
             token.ThrowIfCancellationRequested();
             PdfLayOutPrintVisualPlan plan = PdfLayOutPrintGeometry.CreateVisualPlan(_job.Sheets[index].SheetSize,
                 new(description.PageSize.Width, description.PageSize.Height));
+            _diagnostics.Record("Page.VisualPlan", new { phase, page = index + 1, paperDip = plan.Paper, sheetDip = plan.Sheet });
             var page = new Canvas
             {
                 Width = plan.Paper.Width, Height = plan.Paper.Height, UseLayoutRounding = false,
@@ -235,23 +300,37 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             page.UpdateLayout();
         }
 
-        private void DispatchCallback(Func<Task> action)
+        private void DispatchCallback(Func<Task> action, string stage)
         {
             if (_disposed) return;
-            if (_host.DispatcherQueue.HasThreadAccess) _callbacks.Add(RunCallbackAsync(action));
-            else if (!_host.DispatcherQueue.TryEnqueue(() => { if (!_disposed) _callbacks.Add(RunCallbackAsync(action)); }))
-                _completion.TrySetException(new InvalidOperationException("打印页面已经关闭。"));
+            if (_host.DispatcherQueue.HasThreadAccess) _callbacks.Add(RunCallbackAsync(action, stage));
+            else if (!_host.DispatcherQueue.TryEnqueue(() => { if (!_disposed) _callbacks.Add(RunCallbackAsync(action, stage)); }))
+                Fail(stage + ".Dispatch", new InvalidOperationException("打印页面已经关闭。"));
         }
 
-        private async Task RunCallbackAsync(Func<Task> action)
+        private async Task RunCallbackAsync(Func<Task> action, string stage)
         {
             try { await action(); }
-            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-            catch (Exception exception) { _completion.TrySetException(exception); }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { _diagnostics.Record(stage + ".Cancelled"); }
+            catch (Exception exception) { Fail(stage, exception); }
         }
+
+        private void Fail(string stage, Exception exception)
+        {
+            _diagnostics.Error(stage, exception);
+            _completion.TrySetException(exception);
+        }
+
+        private void RecordOptions(string phase, PrintTaskOptions options) => _diagnostics.Capture("Print.Options", () => new
+        {
+            phase, mediaSize = options.MediaSize.ToString(), orientation = options.Orientation.ToString(),
+            quality = options.PrintQuality.ToString(), colorMode = options.ColorMode.ToString(),
+            duplex = options.Duplex.ToString(), copies = options.NumberOfCopies,
+        });
 
         public async ValueTask DisposeAsync()
         {
+            using var stage = _diagnostics.Stage("PrintSession.Cleanup");
             _disposed = true;
             _lifetime.Cancel();
             if (_manager is not null) _manager.PrintTaskRequested -= PrintTaskRequested;
@@ -266,4 +345,7 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             _lifetime.Dispose();
         }
     }
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern uint GetDpiForWindow(nint window);
 }

@@ -16,6 +16,15 @@ https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist
 并不表示所有用户数据都保存在程序目录。
 
 帮助菜单中的 GitHub Releases 用于手动下载新版本，软件没有自动更新功能。
+
+PDF 拼版打印诊断：每次点击打印都会在
+`%LOCALAPPDATA%\BigDvToolBox\Logs\Printing` 中生成一份 `print-*.log`。
+页面状态会显示本次日志完整路径，可以选中复制。
+日志包含请求/实际纸张尺寸、DPI、位图像素和字节数、各阶段耗时，以及异常/HRESULT。
+打印队列中的任务名称带短编号，用于匹配本次 Windows 打印错误事件。
+遇到队列发送失败时，请保持软件打开约一分钟，再提供本次日志；
+若系统不允许读取打印事件，日志会记录读取失败，其他打印诊断仍可使用。
+
 本项目按 AGPL-3.0-or-later 开源，第三方组件保留各自许可。
 LICENSE、THIRD-PARTY-NOTICES.md、Licenses 文件夹包含相关声明。
 对应项目源码 ZIP 与 Ghostscript 10.07.1 完整源码位于同一个 GitHub Release。

@@ -8,6 +8,7 @@ using Microsoft.Windows.Storage.Pickers;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Streams;
+using Windows.Graphics.Imaging;
 
 namespace BigDvToolBox_App.Features.PdfLayOut;
 
@@ -16,11 +17,15 @@ public sealed partial class PdfLayOutPage
     private const string CellDragFormat = "BigDvToolBox.PdfLayOut.Cell";
     private readonly string _dragSession = Guid.NewGuid().ToString("N");
     private PdfLayOutCellContent? _dragContent;
+    private const double CellDragThreshold = 6;
+    private (Button Source, uint PointerId, Windows.Foundation.Point Position)? _cellDragPress;
+    private bool _isCellDragActive;
     private readonly Dictionary<PdfLayOutCellViewModel, Button> _freeVisuals = [];
     private readonly Dictionary<PdfLayOutPagePreview, Task<BitmapImage>> _freeBitmapTasks = [];
 
     private void BuildFreeCells(PdfLayOutSheetLayout layout)
     {
+        _cellDragPress = null;
         _freeVisuals.Clear();
         var needed = ViewModel.FreeCells.Where(c => c.Preview is not null).Select(c => c.Preview!).ToHashSet();
         foreach (var key in _freeBitmapTasks.Keys.Except(needed).ToArray()) _freeBitmapTasks.Remove(key);
@@ -32,7 +37,6 @@ public sealed partial class PdfLayOutPage
             var visual = (Button)((DataTemplate)Resources["FreeCellTemplate"]).LoadContent();
             visual.Tag = cell;
             visual.AllowDrop = ViewModel.IsFreeMode;
-            visual.CanDrag = ViewModel.IsFreeMode && cell.Content is not null;
             visual.IsTabStop = true;
             AutomationProperties.SetAutomationId(visual, $"PdfLayOutCell_{cell.Row}_{cell.Column}");
             AutomationProperties.SetName(visual, cell.Label);
@@ -42,6 +46,16 @@ public sealed partial class PdfLayOutPage
             visual.DragStarting += Cell_DragStarting;
             visual.DropCompleted += (_, _) => _dragContent = null;
             visual.Click += Cell_Click;
+            // Button 会处理并捕获指针；从已处理事件中识别拖动，再显式启动系统拖放。
+            visual.AddHandler(PointerPressedEvent, new PointerEventHandler(Cell_DragPointerPressed), true);
+            visual.AddHandler(PointerMovedEvent, new PointerEventHandler(Cell_DragPointerMoved), true);
+            visual.AddHandler(PointerReleasedEvent, new PointerEventHandler(Cell_DragPointerEnded), true);
+            visual.PointerCanceled += Cell_DragPointerEnded;
+            visual.PointerCaptureLost += Cell_DragPointerEnded;
+            // Button 会处理部分手势事件；仍接收双击，单击只改变选择。
+            visual.AddHandler(DoubleTappedEvent, new DoubleTappedEventHandler(Cell_DoubleTapped), true);
+            visual.ContextRequested += Cell_ContextRequested;
+            ToolTipService.SetToolTip(visual, "单击选中；双击选择文件；拖动到其他容器复制；右键选页或清空");
             visual.Clip = new RectangleGeometry { Rect = new(0, 0, MillimetersToDip(bounds.Bounds.Width), MillimetersToDip(bounds.Bounds.Height)) };
             Grid.SetRow(visual, cell.Row);
             Grid.SetColumn(visual, cell.Column);
@@ -73,7 +87,6 @@ public sealed partial class PdfLayOutPage
         if (!_freeVisuals.TryGetValue(cell, out var visual)) return;
         ((TextBlock)visual.FindName("CellLabel")).Text = ViewModel.IsFreeMode ? cell.Label : "拖入一个 PDF 开始重复拼版";
         AutomationProperties.SetName(visual, cell.Label);
-        visual.CanDrag = ViewModel.CanEditCells && cell.Content is not null;
         var image = (Image)visual.FindName("CellImage");
         image.Visibility = BoolToVisibility(ViewModel.ShowPageContent);
         PdfLayOutPagePreview? preview = cell.Preview;
@@ -92,7 +105,7 @@ public sealed partial class PdfLayOutPage
         }
     }
 
-    private static async Task<BitmapImage> CreateBitmapAsync(PdfLayOutPagePreview preview)
+    private static async Task<BitmapImage> CreateBitmapAsync(PdfLayOutPagePreview preview, int maximumEdge = 0)
     {
         using var stream = new InMemoryRandomAccessStream();
         using (var writer = new DataWriter(stream))
@@ -103,7 +116,20 @@ public sealed partial class PdfLayOutPage
         }
         stream.Seek(0);
         var bitmap = new BitmapImage();
-        await bitmap.SetSourceAsync(stream);
+        if (maximumEdge > 0)
+        {
+            // 真正缩小 PNG 像素尺寸，拖放系统不会再按源图尺寸显示。
+            var decoder = await BitmapDecoder.CreateAsync(stream);
+            double scale = Math.Min(1, maximumEdge / (double)Math.Max(decoder.PixelWidth, decoder.PixelHeight));
+            using var thumbnail = new InMemoryRandomAccessStream();
+            var encoder = await BitmapEncoder.CreateForTranscodingAsync(thumbnail, decoder);
+            encoder.BitmapTransform.ScaledWidth = Math.Max(1, (uint)Math.Round(decoder.PixelWidth * scale));
+            encoder.BitmapTransform.ScaledHeight = Math.Max(1, (uint)Math.Round(decoder.PixelHeight * scale));
+            await encoder.FlushAsync();
+            thumbnail.Seek(0);
+            await bitmap.SetSourceAsync(thumbnail);
+        }
+        else await bitmap.SetSourceAsync(stream);
         return bitmap;
     }
 
@@ -114,15 +140,30 @@ public sealed partial class PdfLayOutPage
                 ViewModel.IsFreeMode && (ReferenceEquals(pair.Key, ViewModel.SelectedCell) || ReferenceEquals(pair.Value, dropTarget)));
     }
 
-    private async void Cell_Click(object sender, RoutedEventArgs e)
+    private void Cell_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: PdfLayOutCellViewModel cell } visual) return;
+        if (ViewModel.CanEditCells && sender is Button { Tag: PdfLayOutCellViewModel cell })
+            ViewModel.SelectCell(cell);
+    }
+
+    private async void Cell_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: PdfLayOutCellViewModel cell }) return;
+        e.Handled = true;
         if (ViewModel.IsRepeatMode) { ChooseSource_Click(sender, new RoutedEventArgs()); return; }
         if (!ViewModel.CanEditCells) return;
         ViewModel.SelectCell(cell);
-        if (cell.Content is null) { await ChooseCellFileAsync(cell); return; }
-        var content = cell.Content;
-        var panel = new StackPanel { Width = 280, Spacing = 12 };
+        await ChooseCellFileAsync(cell);
+    }
+
+    private void Cell_ContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not Button { Tag: PdfLayOutCellViewModel cell } visual) return;
+        if (!ViewModel.CanEditCells) return;
+        e.Handled = true;
+        ViewModel.SelectCell(cell);
+        if (cell.Content is not { } content) return;
+        var panel = new StackPanel { Width = 220, Spacing = 8 };
         panel.Children.Add(new TextBlock { Text = content.Document.FileName, TextWrapping = TextWrapping.Wrap });
         var number = new NumberBox
         {
@@ -135,11 +176,14 @@ public sealed partial class PdfLayOutPage
             if (double.IsFinite(args.NewValue)) ViewModel.SelectCellPage(cell, (int)Math.Round(args.NewValue) - 1);
         };
         panel.Children.Add(number);
-        var flyout = new Flyout { Content = panel };
-        var replace = new Button { Content = "替换文件" };
+        var presenterStyle = new Style(typeof(FlyoutPresenter));
+        presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12)));
+        presenterStyle.Setters.Add(new Setter(FrameworkElement.MinWidthProperty, 0d));
+        var flyout = new Flyout { Content = panel, FlyoutPresenterStyle = presenterStyle };
+        var replace = new Button { Content = "替换文件", HorizontalAlignment = HorizontalAlignment.Stretch };
         AutomationProperties.SetAutomationId(replace, "PdfLayOutCellReplace");
         replace.Click += async (_, _) => { flyout.Hide(); await ChooseCellFileAsync(cell); };
-        var clear = new Button { Content = "清空容器" };
+        var clear = new Button { Content = "清空容器", HorizontalAlignment = HorizontalAlignment.Stretch };
         AutomationProperties.SetAutomationId(clear, "PdfLayOutCellClear");
         clear.Click += (_, _) => { flyout.Hide(); ViewModel.ClearCell(cell); };
         panel.Children.Add(replace); panel.Children.Add(clear);
@@ -163,13 +207,75 @@ public sealed partial class PdfLayOutPage
         finally { _isPickingFile = false; }
     }
 
-    private void Cell_DragStarting(UIElement sender, DragStartingEventArgs args)
+    private void Cell_DragPointerPressed(object sender, PointerRoutedEventArgs args)
     {
-        if (!ViewModel.CanEditCells || sender is not Button { Tag: PdfLayOutCellViewModel { Content: { } content } })
+        _cellDragPress = null;
+        if (_isCellDragActive || !ViewModel.CanEditCells || _isPickingFile ||
+            sender is not Button { Tag: PdfLayOutCellViewModel { Content: not null } } source) return;
+        var point = args.GetCurrentPoint(source);
+        if (point.Properties.IsLeftButtonPressed)
+            _cellDragPress = (source, args.Pointer.PointerId, point.Position);
+    }
+
+    private async void Cell_DragPointerMoved(object sender, PointerRoutedEventArgs args)
+    {
+        if (_isCellDragActive || _cellDragPress is not { } press || !ReferenceEquals(sender, press.Source) ||
+            args.Pointer.PointerId != press.PointerId) return;
+        var point = args.GetCurrentPoint(press.Source);
+        if (!point.Properties.IsLeftButtonPressed || !ViewModel.CanEditCells || _isPickingFile)
+        { _cellDragPress = null; return; }
+        if (Math.Abs(point.Position.X - press.Position.X) < CellDragThreshold &&
+            Math.Abs(point.Position.Y - press.Position.Y) < CellDragThreshold) return;
+
+        _cellDragPress = null;
+        _isCellDragActive = true;
+        args.Handled = true;
+        try
+        {
+            // 释放 Button 的按下状态，避免松开鼠标时再触发一次 Click。
+            press.Source.ReleasePointerCaptures();
+            await press.Source.StartDragAsync(point);
+        }
+        catch (Exception exception)
+        { if (_isActive) ViewModel.ReportInputError($"无法拖动容器：{exception.Message}"); }
+        finally
+        {
+            _isCellDragActive = false;
+            _dragContent = null;
+            UpdateCellHighlights();
+        }
+    }
+
+    private void Cell_DragPointerEnded(object sender, PointerRoutedEventArgs args)
+    {
+        if (_cellDragPress is { } press && args.Pointer.PointerId == press.PointerId) _cellDragPress = null;
+    }
+
+    private async void Cell_DragStarting(UIElement sender, DragStartingEventArgs args)
+    {
+        if (!ViewModel.CanEditCells || _isPickingFile || sender is not Button { Tag: PdfLayOutCellViewModel { Content: { } content } cell })
         { args.Cancel = true; return; }
+        ViewModel.SelectCell(cell);
         _dragContent = content;
         args.Data.SetData(CellDragFormat, _dragSession);
         args.Data.RequestedOperation = DataPackageOperation.Copy;
+        // 不使用整个容器的默认截图；没有页面预览时也只显示系统的小图标。
+        args.DragUI.SetContentFromDataPackage();
+        if (cell.Preview is not { } preview) return;
+        long revision = ViewModel.ModeRevision;
+        var deferral = args.GetDeferral();
+        try
+        {
+            BitmapImage thumbnail = await CreateBitmapAsync(preview, maximumEdge: 120);
+            if (!_isActive || revision != ViewModel.ModeRevision) { args.Cancel = true; return; }
+            args.DragUI.SetContentFromBitmapImage(thumbnail, new(0, 0));
+        }
+        catch (Exception exception)
+        {
+            // 缩略图失败不影响复制，保留上面设置的系统图标。
+            System.Diagnostics.Debug.WriteLine($"拖动缩略图不可用：{exception.Message}");
+        }
+        finally { deferral.Complete(); }
     }
 
     private void Cell_DragOver(object sender, DragEventArgs args)
@@ -180,7 +286,7 @@ public sealed partial class PdfLayOutPage
         args.AcceptedOperation = accepted ? DataPackageOperation.Copy : DataPackageOperation.None;
         if (accepted)
         {
-            args.DragUIOverride.Caption = "放入此容器（复制）";
+            args.DragUIOverride.Caption = "复制到此格";
             UpdateCellHighlights((Button)sender);
         }
     }

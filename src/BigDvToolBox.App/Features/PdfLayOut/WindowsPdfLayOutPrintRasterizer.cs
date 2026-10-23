@@ -31,7 +31,8 @@ internal sealed class WindowsPdfLayOutPrintRasterizer : IDisposable
         catch { input.Dispose(); throw; }
     }
 
-    public async Task<PdfLayOutPrintBitmap> RenderAsync(int pageIndex, PdfLayOutPrintRasterSize size, CancellationToken cancellationToken)
+    public async Task<PdfLayOutPrintBitmap> RenderAsync(int pageIndex, PdfLayOutPrintRasterSize size, CancellationToken cancellationToken,
+        PdfLayOutPrintDiagnostics? diagnostics = null, string phase = "Print")
     {
         if (pageIndex < 0 || pageIndex >= PageCount) throw new ArgumentOutOfRangeException(nameof(pageIndex));
         if (size.Width <= 0 || size.Height <= 0 || size.Width > PdfLayOutPrintGeometry.MaximumRasterEdge ||
@@ -42,17 +43,29 @@ internal sealed class WindowsPdfLayOutPrintRasterizer : IDisposable
         using var output = new InMemoryRandomAccessStream();
         // 系统 PDF 引擎把 DestinationWidth/Height 当作 DIP。先消除桌面 DPI，避免生成多倍尺寸的临时位图。
         double desktopScale = Math.Max(1, GetDpiForSystem() / 96d);
-        await page.RenderToStreamAsync(output, new PdfPageRenderOptions
+        var renderOptions = new PdfPageRenderOptions
         {
             DestinationWidth = (uint)Math.Max(1, Math.Ceiling(size.Width / desktopScale)),
             DestinationHeight = (uint)Math.Max(1, Math.Ceiling(size.Height / desktopScale)),
             BitmapEncoderId = BitmapEncoder.PngEncoderId,
             BackgroundColor = new() { A = 255, R = 255, G = 255, B = 255 },
             IsIgnoringHighContrast = true,
-        }).AsTask(cancellationToken).ConfigureAwait(false);
+        };
+        diagnostics?.Record("Raster.Input", new
+        {
+            phase, page = pageIndex + 1, desktopScale, renderOptions.DestinationWidth, renderOptions.DestinationHeight,
+            targetWidth = size.Width, targetHeight = size.Height,
+        });
+        using (diagnostics?.Stage("PdfPage.RenderToPng", new { phase, page = pageIndex + 1 }))
+            await page.RenderToStreamAsync(output, renderOptions).AsTask(cancellationToken).ConfigureAwait(false);
         output.Seek(0);
-        BitmapDecoder decoder = await BitmapDecoder.CreateAsync(output).AsTask(cancellationToken).ConfigureAwait(false);
-        PixelDataProvider pixels = await decoder.GetPixelDataAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore,
+        BitmapDecoder decoder;
+        using (diagnostics?.Stage("Png.OpenDecoder", new { phase, page = pageIndex + 1 }))
+            decoder = await BitmapDecoder.CreateAsync(output).AsTask(cancellationToken).ConfigureAwait(false);
+        diagnostics?.Record("Raster.Png", new { phase, page = pageIndex + 1, bytes = output.Size, decoder.PixelWidth, decoder.PixelHeight });
+        PixelDataProvider pixels;
+        using (diagnostics?.Stage("Png.DecodeBgra", new { phase, page = pageIndex + 1 }))
+            pixels = await decoder.GetPixelDataAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore,
             new BitmapTransform
             {
                 ScaledWidth = (uint)size.Width, ScaledHeight = (uint)size.Height,
@@ -60,7 +73,9 @@ internal sealed class WindowsPdfLayOutPrintRasterizer : IDisposable
             }, ExifOrientationMode.IgnoreExifOrientation, ColorManagementMode.DoNotColorManage)
             .AsTask(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        return new(size.Width, size.Height, pixels.DetachPixelData());
+        byte[] bytes = pixels.DetachPixelData();
+        diagnostics?.Record("Raster.Bitmap", new { phase, page = pageIndex + 1, width = size.Width, height = size.Height, rawBytes = bytes.LongLength });
+        return new(size.Width, size.Height, bytes);
     }
 
     public void Dispose() => _input.Dispose();

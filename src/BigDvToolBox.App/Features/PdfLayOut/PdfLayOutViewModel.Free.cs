@@ -14,7 +14,7 @@ public partial class PdfLayOutCellViewModel(int row, int column) : ObservableObj
     [ObservableProperty] public partial string? Error { get; internal set; }
     public string PositionText => $"第 {Row + 1} 行第 {Column + 1} 列";
     public string Label => IsLoading ? $"{PositionText} · 加载中…" : Error is not null ? $"{PositionText} · {Error}"
-        : Content is { } c ? $"{PositionText} · {c.Document.FileName} · 第 {c.SourcePageIndex + 1} 页" : $"{PositionText} · 拖入 PDF";
+        : Content is { } c ? $"{PositionText} · {c.Document.FileName} · 第 {c.SourcePageIndex + 1} 页" : $"{PositionText} · 拖入 PDF 或双击选择";
 }
 
 public sealed record PdfLayOutLayoutChange(PdfLayOutSettings Settings, Guid? PresetId,
