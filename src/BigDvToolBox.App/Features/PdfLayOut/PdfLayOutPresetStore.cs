@@ -176,14 +176,14 @@ public sealed class JsonPdfLayOutPresetStore : IPdfLayOutPresetStore
             !NonNegative(settings.HorizontalGap) || !NonNegative(settings.VerticalGap) ||
             !double.IsFinite(settings.Offset.X) || !double.IsFinite(settings.Offset.Y) ||
             !double.IsFinite(settings.ScalePercent) || settings.ScalePercent is <= 0 or > 1000 ||
-            !Enum.IsDefined(settings.GridMode) || !Enum.IsDefined(settings.ScaleMode) ||
+            !Enum.IsDefined(settings.Mode) || !Enum.IsDefined(settings.GridMode) || !Enum.IsDefined(settings.ScaleMode) ||
             settings.Columns is < 1 or > PdfLayOutCalculator.MaximumGridCount ||
             settings.Rows is < 1 or > PdfLayOutCalculator.MaximumGridCount || settings.Marks is null ||
             !NonNegative(settings.Marks.Length) || !NonNegative(settings.Marks.Offset))
             throw new ArgumentException("配置包含无效的尺寸、边距、间距、缩放或标记参数。");
         double width = settings.SheetSize.Width - settings.SheetMargins.Left - settings.SheetMargins.Right;
         double height = settings.SheetSize.Height - settings.SheetMargins.Top - settings.SheetMargins.Bottom;
-        if (width <= 0 || height <= 0 || settings.GridMode == PdfLayOutGridMode.Manual &&
+        if (width <= 0 || height <= 0 || (settings.Mode == PdfLayOutMode.Free || settings.GridMode == PdfLayOutGridMode.Manual) &&
             (width <= (settings.Columns - 1) * settings.HorizontalGap || height <= (settings.Rows - 1) * settings.VerticalGap))
             throw new ArgumentException("配置的边距或间距超出了印张可用区域。");
     }

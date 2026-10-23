@@ -26,7 +26,8 @@ public sealed class WindowsPdfLayOutDocumentService : IPdfLayOutDocumentService,
             PdfDocument pdf = await OpenDocumentAsync(input, cancellationToken).ConfigureAwait(false);
             if (pdf.PageCount == 0)
                 throw new InvalidDataException("PDF 不包含页面。");
-            double[] units = ReadUserUnits(file.Path, cancellationToken);
+            var metadata = ReadMetadata(file.Path, cancellationToken, inspectFonts: true);
+            double[] units = metadata.Units;
             if (units.Length != pdf.PageCount)
                 throw new InvalidDataException("PDF 页面信息不一致，请重新加载文件。");
 
@@ -40,7 +41,7 @@ public sealed class WindowsPdfLayOutDocumentService : IPdfLayOutDocumentService,
                     page.Size.Height * units[index] * 25.4 / 96)));
             }
             cancellationToken.ThrowIfCancellationRequested();
-            return new PdfLayOutDocument(filePath, pages);
+            return new PdfLayOutDocument(filePath, pages, metadata.Fonts);
         }, cancellationToken);
 
     public Task<PdfLayOutPagePreview> RenderAsync(PdfLayOutDocument document, int pageIndex, CancellationToken cancellationToken) =>
@@ -57,7 +58,7 @@ public sealed class WindowsPdfLayOutDocumentService : IPdfLayOutDocumentService,
                 throw new InvalidDataException("源 PDF 已发生变化，请重新加载文件。");
 
             using PdfPage page = pdf.GetPage((uint)pageIndex);
-            double[] units = ReadUserUnits(file.Path, cancellationToken);
+            double[] units = ReadMetadata(file.Path, cancellationToken).Units;
             if (units.Length != document.PageCount)
                 throw new InvalidDataException("源 PDF 页数已发生变化，请重新加载文件。");
             PdfLayOutSize expectedSize = document.Pages[pageIndex].Size;
@@ -103,7 +104,8 @@ public sealed class WindowsPdfLayOutDocumentService : IPdfLayOutDocumentService,
             return new PdfLayOutPagePreview(pageIndex, bytes, width, height);
         }, cancellationToken);
 
-    private static double[] ReadUserUnits(string filePath, CancellationToken cancellationToken)
+    private static (double[] Units, IReadOnlyList<PdfLayOutFontIssue> Fonts) ReadMetadata(
+        string filePath, CancellationToken cancellationToken, bool inspectFonts = false)
     {
         using var pdf = PdfSharp.Pdf.IO.PdfReader.Open(filePath, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
         var units = new double[pdf.PageCount];
@@ -116,7 +118,7 @@ public sealed class WindowsPdfLayOutDocumentService : IPdfLayOutDocumentService,
                 throw new InvalidDataException($"第 {index + 1} 页的 UserUnit 无效。");
             units[index] = unit;
         }
-        return units;
+        return (units, inspectFonts ? PdfLayOutFontInspector.Inspect(pdf, cancellationToken) : []);
     }
 
     private static void ValidatePath(string filePath)

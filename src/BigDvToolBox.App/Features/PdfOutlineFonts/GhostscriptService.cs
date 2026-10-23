@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using BigDvToolBox_App.Services;
 
 namespace BigDvToolBox_App.Features.PdfOutlineFonts;
 
@@ -21,14 +22,15 @@ internal interface IGhostscriptService
         CancellationToken cancellationToken);
 }
 
-internal sealed class GhostscriptService : IGhostscriptService
+internal sealed partial class GhostscriptService : IGhostscriptService, IPdfFontOutliner
 {
     internal const string GhostscriptVersion = "10.07.1";
 
     private const int GsArgEncodingUtf8 = 1;
     private const int GsQuit = -101;
 
-    private readonly SemaphoreSlim _initializeLock = new(1, 1);
+    private static readonly SemaphoreSlim InitializeLock = new(1, 1);
+    private static readonly SemaphoreSlim ExecutionLock = new(1, 1);
     private bool _initialized;
     private IntPtr _libraryHandle;
     private GsApiNewInstance? _gsApiNewInstance;
@@ -55,7 +57,7 @@ internal sealed class GhostscriptService : IGhostscriptService
                 "Ghostscript 暂无 Windows ARM64 原生库。请使用 BigDvToolBox 的 x64 版本。");
         }
 
-        await _initializeLock.WaitAsync(cancellationToken);
+        await InitializeLock.WaitAsync(cancellationToken);
         try
         {
             if (_initialized)
@@ -74,7 +76,7 @@ internal sealed class GhostscriptService : IGhostscriptService
         }
         finally
         {
-            _initializeLock.Release();
+            InitializeLock.Release();
         }
     }
 
@@ -85,21 +87,26 @@ internal sealed class GhostscriptService : IGhostscriptService
         int dpi,
         CancellationToken cancellationToken)
     {
-        await InitializeAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        string? directory = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrWhiteSpace(directory))
+        await ExecutionLock.WaitAsync(cancellationToken);
+        try
         {
-            Directory.CreateDirectory(directory);
-        }
+            await InitializeAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
-        string[] arguments = BuildArguments(
-            inputPath,
-            outputPath,
-            convertMode,
-            PdfOutlineFileRules.ClampDpi(dpi));
-        await Task.Run(() => ExecuteGhostscript(arguments, cancellationToken), cancellationToken);
+            string? directory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            string[] arguments = BuildArguments(
+                inputPath,
+                outputPath,
+                convertMode,
+                PdfOutlineFileRules.ClampDpi(dpi));
+            await Task.Run(() => ExecuteGhostscript(arguments, cancellationToken), cancellationToken);
+        }
+        finally { ExecutionLock.Release(); }
     }
 
     internal static string[] BuildArguments(
@@ -199,7 +206,7 @@ internal sealed class GhostscriptService : IGhostscriptService
             }
         }
 
-        string temporaryPath = $"{targetPath}.{Environment.ProcessId}.tmp";
+        string temporaryPath = $"{targetPath}.{Guid.NewGuid():N}.tmp";
         try
         {
             await using (Stream source = assembly.GetManifestResourceStream(resourceName)
@@ -234,6 +241,9 @@ internal sealed class GhostscriptService : IGhostscriptService
         _gsApiSetArgEncoding = LoadDelegate<GsApiSetArgEncoding>("gsapi_set_arg_encoding");
         _gsApiInitWithArgs = LoadDelegate<GsApiInitWithArgs>("gsapi_init_with_args");
         _gsApiExit = LoadDelegate<GsApiExit>("gsapi_exit");
+        _gsApiSetStdio = LoadDelegate<GsApiSetStdio>("gsapi_set_stdio");
+        _gsApiSetPoll = LoadDelegate<GsApiSetPoll>("gsapi_set_poll");
+        _gsApiRunString = LoadDelegate<GsApiRunString>("gsapi_run_string");
     }
 
     private T LoadDelegate<T>(string exportName)
@@ -247,7 +257,7 @@ internal sealed class GhostscriptService : IGhostscriptService
         return Marshal.GetDelegateForFunctionPointer<T>(export);
     }
 
-    private void ExecuteGhostscript(string[] arguments, CancellationToken cancellationToken)
+    private void ExecuteGhostscript(string[] arguments, CancellationToken cancellationToken, GhostscriptStreamIo? io = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -265,6 +275,12 @@ internal sealed class GhostscriptService : IGhostscriptService
         var argumentPointers = new IntPtr[arguments.Length];
         IntPtr argv = IntPtr.Zero;
         IntPtr instance = IntPtr.Zero;
+        bool initAttempted = false;
+        bool exitAttempted = false;
+        GsIoCallback? read = io is null ? null : io.Read;
+        GsIoCallback? write = io is null ? null : io.Write;
+        GsIoCallback? error = io is null ? null : io.Error;
+        GsPollCallback poll = _ => cancellationToken.IsCancellationRequested ? -1 : 0;
 
         try
         {
@@ -281,24 +297,39 @@ internal sealed class GhostscriptService : IGhostscriptService
 
             ThrowIfFailed(newInstance(out instance, IntPtr.Zero), "gsapi_new_instance");
             ThrowIfFailed(setArgEncoding(instance, GsArgEncodingUtf8), "gsapi_set_arg_encoding");
+            ThrowIfFailed(_gsApiSetPoll!(instance, poll), "gsapi_set_poll");
+            if (io is not null)
+                ThrowIfFailed(_gsApiSetStdio!(instance, read!, write!, error!), "gsapi_set_stdio");
 
+            initAttempted = true;
             int initCode = initWithArgs(instance, arguments.Length, argv);
+            cancellationToken.ThrowIfCancellationRequested();
+            io?.ThrowIfCallbackFailed();
             if (initCode is not 0 and not GsQuit)
             {
-                ThrowIfFailed(initCode, "gsapi_init_with_args");
+                ThrowIfFailed(initCode, "gsapi_init_with_args", io?.ErrorText);
+            }
+            if (io is not null)
+            {
+                if (initCode != 0) throw new InvalidOperationException("Ghostscript 未能启动内存转曲会话。");
+                RunMemoryConversion(instance, io, cancellationToken);
             }
 
+            exitAttempted = true;
             int exitCode = exit(instance);
+            cancellationToken.ThrowIfCancellationRequested();
+            io?.ThrowIfCallbackFailed();
             if (exitCode is not 0 and not GsQuit)
             {
-                ThrowIfFailed(exitCode, "gsapi_exit");
+                ThrowIfFailed(exitCode, "gsapi_exit", io?.ErrorText);
             }
         }
         finally
         {
             if (instance != IntPtr.Zero)
             {
-                deleteInstance(instance);
+                try { if (initAttempted && !exitAttempted) exit(instance); }
+                finally { deleteInstance(instance); }
             }
 
             if (argv != IntPtr.Zero)
@@ -313,30 +344,36 @@ internal sealed class GhostscriptService : IGhostscriptService
                     Marshal.FreeCoTaskMem(pointer);
                 }
             }
+            // 原生侧持有函数指针，必须将委托保活到实例完全销毁之后。
+            GC.KeepAlive(read);
+            GC.KeepAlive(write);
+            GC.KeepAlive(error);
+            GC.KeepAlive(poll);
+            GC.KeepAlive(io);
         }
     }
 
-    private static void ThrowIfFailed(int code, string apiName)
+    private static void ThrowIfFailed(int code, string apiName, string? details = null)
     {
         if (code < 0)
         {
             throw new InvalidOperationException(
-                $"Ghostscript 调用失败：{apiName}，错误码 {code}。");
+                $"Ghostscript 调用失败：{apiName}，错误码 {code}。{details}");
         }
     }
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate int GsApiNewInstance(out IntPtr instance, IntPtr callerHandle);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate void GsApiDeleteInstance(IntPtr instance);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate int GsApiSetArgEncoding(IntPtr instance, int encoding);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate int GsApiInitWithArgs(IntPtr instance, int argumentCount, IntPtr arguments);
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate int GsApiExit(IntPtr instance);
 }

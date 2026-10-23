@@ -60,6 +60,7 @@ public sealed partial class PdfLayOutPage : Page
     public static double MillimetersToDip(double value) =>
         double.IsFinite(value) ? Math.Max(0, value) * 96 / 25.4 : 0;
 
+    public static bool Not(bool value) => !value;
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
@@ -67,6 +68,7 @@ public sealed partial class PdfLayOutPage : Page
         if (_isActive) return;
         _isActive = true;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+        ViewModel.FreeCellChanged += FreeCellChanged;
         UpdatePreviewGrid();
         UpdatePreviewZoomControls();
         QueuePreviewFit();
@@ -81,9 +83,12 @@ public sealed partial class PdfLayOutPage : Page
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
         _isActive = false;
+        if (ViewModel.PendingLayoutChange is { } pending) _ = ViewModel.ResolveLayoutChangeAsync(pending, false);
         _presetDialog?.Hide();
         EndPreviewPan();
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        ViewModel.FreeCellChanged -= FreeCellChanged;
+        _freeBitmapTasks.Clear();
         Interlocked.Increment(ref _imageRequestId);
         ViewModel.LoadDocumentCommand.Cancel();
         ViewModel.ExportPdfCommand.Cancel();
@@ -211,12 +216,13 @@ public sealed partial class PdfLayOutPage : Page
         _isManagingPreset = true;
         try { await action(); }
         catch (Exception exception) { ViewModel.ReportInputError($"配置操作失败：{exception.Message}"); }
-        finally { _presetDialog = null; _isManagingPreset = false; }
+        finally { _presetDialog = null; _isManagingPreset = false; if (ViewModel.PendingLayoutChange is not null) DispatcherQueue.TryEnqueue(async () => await ShowLayoutChangeAsync()); }
     }
 
     private async void ChooseSource_Click(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.CanLoadDocument || _isPickingFile) return;
+        if (ViewModel.IsFreeMode && ViewModel.SelectedCell is { } cell) { await ChooseCellFileAsync(cell); return; }
         _isPickingFile = true;
         try
         {
@@ -233,7 +239,7 @@ public sealed partial class PdfLayOutPage : Page
         finally { _isPickingFile = false; }
     }
 
-    private async void ExportPdf_Click(object sender, RoutedEventArgs e)
+    private async void ExportPdf_Click(SplitButton sender, SplitButtonClickEventArgs e)
     {
         if (!ViewModel.CanExport || _isPickingFile) return;
         _isPickingFile = true;
@@ -241,7 +247,7 @@ public sealed partial class PdfLayOutPage : Page
         {
             var picker = new FileSavePicker(XamlRoot.ContentIslandEnvironment.AppWindowId)
             {
-                SuggestedFileName = System.IO.Path.GetFileNameWithoutExtension(ViewModel.FileName) + "_拼版.pdf",
+                SuggestedFileName = ViewModel.ExportSuggestedName,
                 DefaultFileExtension = ".pdf",
             };
             picker.FileTypeChoices.Add("PDF 文件", new List<string> { ".pdf" });
@@ -259,7 +265,7 @@ public sealed partial class PdfLayOutPage : Page
     private void Files_DragOver(object sender, DragEventArgs e)
     {
         e.Handled = true;
-        bool canDrop = ViewModel.CanLoadDocument && !_isPickingFile &&
+        bool canDrop = ViewModel.IsRepeatMode && ViewModel.CanLoadDocument && !_isPickingFile &&
             e.DataView.Contains(StandardDataFormats.StorageItems);
         e.AcceptedOperation = canDrop ? DataPackageOperation.Copy : DataPackageOperation.None;
         if (canDrop)
@@ -273,7 +279,7 @@ public sealed partial class PdfLayOutPage : Page
     {
         e.Handled = true;
         e.AcceptedOperation = DataPackageOperation.None;
-        if (!ViewModel.CanLoadDocument || _isPickingFile ||
+        if (ViewModel.IsFreeMode || !ViewModel.CanLoadDocument || _isPickingFile ||
             !e.DataView.Contains(StandardDataFormats.StorageItems)) return;
 
         var deferral = e.GetDeferral();
@@ -300,6 +306,7 @@ public sealed partial class PdfLayOutPage : Page
 
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ViewModel.PendingLayoutChange)) { await ShowLayoutChangeAsync(); return; }
         if (e.PropertyName == nameof(ViewModel.CurrentLayout))
             UpdatePreviewGrid();
         else if (!ViewModel.HasDocument && (e.PropertyName is nameof(ViewModel.SheetWidth) or nameof(ViewModel.SheetHeight)))
@@ -351,6 +358,7 @@ public sealed partial class PdfLayOutPage : Page
         PreviewGrid.ColumnDefinitions.Clear();
         PrintMarksCanvas.Children.Clear();
         _pageImages.Clear();
+        _freeVisuals.Clear();
 
         PdfLayOutSize paperSize = ViewModel.CurrentLayout?.SheetSize ?? new(ViewModel.SheetWidth, ViewModel.SheetHeight);
         double paperWidth = MillimetersToDip(paperSize.Width);
@@ -363,7 +371,7 @@ public sealed partial class PdfLayOutPage : Page
         PreviewContent.Height = paperHeight + PreviewPadding * 2;
         QueuePreviewFit();
         PaperSurface.Clip = new RectangleGeometry { Rect = new(0, 0, PaperSurface.Width, PaperSurface.Height) };
-        if (ViewModel.CurrentLayout is not { IsValid: true } layout)
+        if (ViewModel.CurrentLayout is not { Cells.Count: > 0 } layout)
             return;
 
         // Grid 保留原生行列间距；大小、位置和单元格均只取解析后的毫米版式。
@@ -374,10 +382,18 @@ public sealed partial class PdfLayOutPage : Page
         PreviewGrid.ColumnSpacing = MillimetersToDip(layout.HorizontalGap);
         PreviewGrid.RowSpacing = MillimetersToDip(layout.VerticalGap);
         for (int row = 0; row < layout.Rows; row++)
-            PreviewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(MillimetersToDip(layout.Placements[row * layout.Columns].CellBounds.Height)) });
+            PreviewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(MillimetersToDip(layout.Cells[row * layout.Columns].Bounds.Height)) });
         for (int column = 0; column < layout.Columns; column++)
-            PreviewGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(MillimetersToDip(layout.Placements[column].CellBounds.Width)) });
+            PreviewGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(MillimetersToDip(layout.Cells[column].Bounds.Width)) });
 
+        if (ViewModel.IsFreeMode || ViewModel.SourceDocument is null)
+        {
+            BuildFreeCells(layout);
+            DrawPrintMarks(layout.Marks);
+            return;
+        }
+        _freeVisuals.Clear();
+        _freeBitmapTasks.Clear();
         var pageTemplate = (DataTemplate)Resources["RepeatPageTemplate"];
         foreach (PdfLayOutPlacement placement in layout.Placements)
         {

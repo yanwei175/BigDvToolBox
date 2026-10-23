@@ -31,6 +31,7 @@ public partial class PdfLayOutViewModel
         if (!EnsurePresetSaved()) return false;
         try
         {
+            if (RequestGridRemoval(preset.Settings, preset.Id, () => { TrySelectPreset(preset); return Task.CompletedTask; })) return false;
             ApplyPresetSettings(preset.Settings);
             SetActivePreset(preset);
             _presetBaseline = preset.Settings;
@@ -86,7 +87,17 @@ public partial class PdfLayOutViewModel
         return RunPresetOperationAsync(async () =>
         {
             Guid id = SelectedPreset?.Id ?? Guid.Empty;
-            ReplacePresets(await _presetStore!.LoadAsync(), id);
+            var items = await _presetStore!.LoadAsync();
+            var candidate = items.FirstOrDefault(p => p.Id == id) ?? items.First(p => p.IsDefault);
+            if (RequestGridRemoval(candidate.Settings, candidate.Id, () =>
+            {
+                ReplacePresets(items, id);
+                ApplyPresetSettings(candidate.Settings);
+                _presetBaseline = candidate.Settings;
+                NotifyPresetDirtyState();
+                return Task.CompletedTask;
+            })) return;
+            ReplacePresets(items, id);
             ApplyPresetSettings(SelectedPreset!.Settings);
             _presetBaseline = SelectedPreset.Settings;
             NotifyPresetDirtyState();
@@ -142,6 +153,9 @@ public partial class PdfLayOutViewModel
         PdfLayOutPreset? selected = SelectedPreset;
         if (selected?.IsDefault != false) return Task.CompletedTask;
         if (!EnsurePresetSaved()) return Task.CompletedTask;
+        var fallback = Presets.First(item => item.IsDefault);
+        if (RequestGridRemoval(fallback.Settings, fallback.Id,
+            () => SelectedPreset?.Id == selected.Id ? DeletePresetAsync() : Task.CompletedTask)) return Task.CompletedTask;
         return RunPresetOperationAsync(async () =>
         {
             await _presetStore!.DeleteAsync(selected.Id);
@@ -187,6 +201,7 @@ public partial class PdfLayOutViewModel
         _isUpdatingPaperSize = true;
         try
         {
+            ModeIndex = (int)settings.Mode;
             SheetWidth = settings.SheetSize.Width;
             SheetHeight = settings.SheetSize.Height;
             OrientationIndex = SheetWidth > SheetHeight ? 1 : 0;
@@ -210,6 +225,7 @@ public partial class PdfLayOutViewModel
         }
         finally { _isUpdatingPaperSize = false; _isApplyingPreset = false; }
         RebuildLayout();
+        if (IsFreeMode) QueuePreview();
     }
 
     private void NotifyPresetState()

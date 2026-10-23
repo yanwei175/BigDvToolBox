@@ -26,7 +26,7 @@ public sealed class PdfLayOutPresetTests
         JsonElement saved = json.RootElement.GetProperty("presets")[1].GetProperty("settings");
         CollectionAssert.AreEquivalent(new[]
         {
-            "sheetSize", "sheetMargins", "sourceCrop", "offset", "gridMode", "columns", "rows",
+            "mode", "sheetSize", "sheetMargins", "sourceCrop", "offset", "gridMode", "columns", "rows",
             "horizontalGap", "verticalGap", "scaleMode", "scalePercent", "marks",
         }, saved.EnumerateObject().Select(item => item.Name).ToArray());
         Assert.AreEqual(2, saved.GetProperty("sheetSize").EnumerateObject().Count());

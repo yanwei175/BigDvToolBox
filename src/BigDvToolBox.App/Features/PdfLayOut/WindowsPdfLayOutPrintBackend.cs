@@ -86,7 +86,7 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             try
             {
                 if (_printTask is not null) _printTask.Completed -= PrintTaskCompleted;
-                _printTask = request.CreatePrintTask(Path.GetFileNameWithoutExtension(_job.Document.FileName) + " - 拼版",
+                _printTask = request.CreatePrintTask(_job.DisplayName,
                     sourceRequest =>
                     {
                         try { sourceRequest.SetSource(_source); }

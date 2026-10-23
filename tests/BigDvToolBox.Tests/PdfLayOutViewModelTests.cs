@@ -11,7 +11,7 @@ public sealed class PdfLayOutViewModelTests
         var model = new PdfLayOutViewModel();
         Assert.IsFalse(model.HasDocument);
         Assert.IsFalse(model.HasValidLayout);
-        Assert.AreEqual(0, model.PreviewColumnCount);
+        Assert.AreEqual(2, model.PreviewColumnCount);
         Assert.IsFalse(model.LoadDocumentCommand.CanExecute("sample.pdf"));
         Assert.IsFalse(model.ExportPdfCommand.CanExecute("output.pdf"));
         Assert.IsFalse(model.PrintCommand.CanExecute(null));

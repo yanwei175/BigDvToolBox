@@ -20,7 +20,7 @@ public partial class PdfLayOutViewModel : ObservableObject
     private bool _isReplacingDocument;
     private bool _isUpdatingPaperSize;
 
-    public PdfLayOutViewModel() { SetActivePreset(Presets[0]); }
+    public PdfLayOutViewModel() { SetActivePreset(Presets[0]); RebuildLayout(); }
 
     public PdfLayOutViewModel(
         IPdfLayOutDocumentService? documentService,
@@ -39,42 +39,45 @@ public partial class PdfLayOutViewModel : ObservableObject
     public string[] PaperSizes { get; } =
         ["SRA3 · 320 × 450", "A3 · 297 × 420", "A4 · 210 × 297", "SRA4 · 225 × 320", "自定义"];
     public string[] ScaleModes { get; } = ["原始尺寸", "适合单元格", "填满单元格", "自定义"];
-    public bool HasDocument => SourceDocument is not null;
+    public bool HasDocument => ActiveDocument is not null;
+    public bool HasFontWarning => !string.IsNullOrEmpty(FontWarningMessage);
+    public string FontWarningMessage => BuildFontWarning();
     public bool IsBusy => Operation != PdfLayOutOperation.Idle || IsPresetBusy;
-    public bool CanEditGrid => !IsAutomaticGrid && !IsBusy;
-    public bool CanLoadDocument => _documentService is not null && !IsBusy;
-    public bool CanExport => _exportService is not null && HasValidLayout && !IsBusy;
-    public bool CanPrint => _printService is not null && HasValidLayout && !IsBusy;
-    public bool CanSelectPage => HasDocument && !IsBusy;
+    public bool CanEditGrid => (IsFreeMode || !IsAutomaticGrid) && !IsBusy;
+    public bool CanLoadDocument => _documentService is not null && !IsBusy && (IsRepeatMode || SelectedCell is not null);
+    public bool CanExport => _exportService is not null && HasValidLayout && !IsBusy && !HasPendingCellLoads && PendingLayoutChange is null;
+    public bool CanPrint => _printService is not null && HasValidLayout && !IsBusy && !HasPendingCellLoads && PendingLayoutChange is null;
+    public bool CanSelectPage => IsRepeatMode && HasDocument && !IsBusy;
     public bool CanGoPreviousPage => CanSelectPage && SelectedPageIndex > 0;
     public bool CanGoNextPage => CanSelectPage && SelectedPageIndex < SourceDocument!.PageCount - 1;
-    public bool CanRefreshPreview => _previewService is not null && CanSelectPage && !IsRenderingPreview;
-    public bool CanCancelOperation => Operation != PdfLayOutOperation.Idle || IsRenderingPreview;
+    public bool CanRefreshPreview => _previewService is not null && !IsBusy && (IsFreeMode ? OccupiedCellCount > 0 : CanSelectPage && !IsRenderingPreview);
+    public bool CanCancelOperation => Operation != PdfLayOutOperation.Idle || IsRenderingPreview || HasPendingCellLoads || _freePreviewCancellation is not null;
     public IReadOnlyList<PdfLayOutSourcePage> SourcePages => SourceDocument?.Pages ?? [];
     public string PageCountText => $"/ {SourceDocument?.PageCount ?? 0}";
     public Task PreviewTask { get; private set; } = Task.CompletedTask;
-    public string PreviewMessage => PreviewErrorMessage ?? (IsRenderingPreview ? "正在渲染页面…"
+    public string PreviewMessage => IsFreeMode ? CurrentLayout?.ErrorMessage ?? string.Empty : PreviewErrorMessage ?? (IsRenderingPreview ? "正在渲染页面…"
         : !HasDocument ? "选择或拖入一个 PDF 文件"
         : !HasValidLayout ? ValidationMessage
         : PagePreview is null ? "当前页暂无预览，可点击“刷新预览”重试。" : string.Empty);
     public bool HasPreviewMessage => !string.IsNullOrWhiteSpace(PreviewMessage);
-    public bool HasValidLayout => CurrentLayout?.IsValid == true;
-    public PdfLayOutSourcePage? CurrentSourcePage => SourceDocument is { } document
-        ? document.Pages[Math.Clamp(SelectedPageIndex, 0, document.PageCount - 1)] : null;
+    public bool HasValidLayout => CurrentLayout?.IsValid == true && (IsFreeMode ? OccupiedCellCount > 0 : SourceDocument is not null);
+    public PdfLayOutSourcePage? CurrentSourcePage => ActiveDocument is { } document
+        ? document.Pages[Math.Clamp(ActivePageIndex, 0, document.PageCount - 1)] : null;
     public int PreviewColumnCount => CurrentLayout?.Columns ?? 0;
     public int PreviewRowCount => CurrentLayout?.Rows ?? 0;
     public int CurrentPageNumber => HasDocument ? SelectedPageIndex + 1 : 0;
     public double PreviewPageWidth => CurrentSourcePage?.Size.Width ?? 1;
     public double PreviewPageHeight => CurrentSourcePage?.Size.Height ?? 1;
-    public string FileName => SourceDocument?.FileName ?? "选择 PDF 文件";
-    public string FileDetails => SourceDocument is null ? "尚未加载 PDF"
-        : $"{SourceDocument.PageCount} 页 · {PreviewPageWidth:0.##} × {PreviewPageHeight:0.##} mm";
+    public string FileName => ActiveDocument?.FileName ?? (IsFreeMode ? SelectedCell?.PositionText ?? "请先选择右侧容器" : "选择 PDF 文件");
+    public string FileDetails => ActiveDocument is not { } document ? (IsFreeMode ? "每个容器可放一个 PDF，并单独选择页码" : "尚未加载 PDF")
+        : $"{document.PageCount} 页 · {PreviewPageWidth:0.##} × {PreviewPageHeight:0.##} mm" +
+          (IsFreeMode ? $" · 当前第 {ActivePageIndex + 1} 页" : string.Empty);
     public string CurrentPageSizeText => CurrentSourcePage is null ? string.Empty
         : $"{PreviewPageWidth:0.##} × {PreviewPageHeight:0.##} mm";
-    public string TrimmedPageSummary => CurrentLayout?.IsValid == true
+    public string TrimmedPageSummary => IsFreeMode ? "裁切、缩放和位移共用；每个页面相对其容器居中，超出部分裁切。" : CurrentLayout?.IsValid == true
         ? $"裁切后页面为 {CurrentLayout.CroppedPageSize.Width:0.##} × {CurrentLayout.CroppedPageSize.Height:0.##} mm。"
         : ValidationMessage;
-    public string ValidationMessage => !HasDocument ? "请选择 PDF 文件。" : CurrentLayout?.ErrorMessage ?? string.Empty;
+    public string ValidationMessage => CurrentLayout?.ErrorMessage ?? (IsFreeMode ? "请向容器放入 PDF。" : !HasDocument ? "请选择 PDF 文件。" : string.Empty);
 
     [ObservableProperty] public partial PdfLayOutDocument? SourceDocument { get; private set; }
     [ObservableProperty] public partial PdfLayOutSheetLayout? CurrentLayout { get; private set; }
@@ -102,8 +105,6 @@ public partial class PdfLayOutViewModel : ObservableObject
     [ObservableProperty] public partial double CropBottom { get; set; }
     [ObservableProperty] public partial double CropLeft { get; set; }
     [ObservableProperty] public partial bool IsAutomaticGrid { get; set; } = true;
-    [ObservableProperty] public partial double Columns { get; set; } = 2;
-    [ObservableProperty] public partial double Rows { get; set; } = 2;
     [ObservableProperty] public partial double HorizontalGap { get; set; } = 5;
     [ObservableProperty] public partial double VerticalGap { get; set; } = 5;
     [ObservableProperty] public partial int ScaleModeIndex { get; set; }
@@ -115,9 +116,12 @@ public partial class PdfLayOutViewModel : ObservableObject
     [ObservableProperty] public partial bool ShowCellBorders { get; set; }
     // 仅影响屏幕预览，不进入打印或导出的版式快照。
     [ObservableProperty] public partial bool ShowPageContent { get; set; } = true;
+    // 只控制本次页面的文件导出，不写入拼版配置，也不改变预览和打印。
+    [ObservableProperty] public partial bool OutlineFontsOnExport { get; set; }
 
     public PdfLayOutSettings CreateSettingsSnapshot() => new()
     {
+        Mode = (PdfLayOutMode)ModeIndex,
         SheetSize = new(SheetWidth, SheetHeight),
         SheetMargins = new(MarginLeft, MarginTop, MarginRight, MarginBottom),
         SourceCrop = new(CropLeft, CropTop, CropRight, CropBottom),
@@ -144,14 +148,16 @@ public partial class PdfLayOutViewModel : ObservableObject
         LastExportPath = null;
     }
 
-    private PdfLayOutJob CreateJob()
+    private PdfLayOutJob CreateJob(bool outlineFonts = false)
     {
+        if (IsFreeMode) return PdfLayOutJob.CreateFree(FreeContents, CreateSettingsSnapshot(), new() { OutlineFonts = outlineFonts });
         PdfLayOutDocument document = SourceDocument ?? throw new InvalidOperationException("请先加载 PDF。");
-        return new(document, CreateSettingsSnapshot());
+        return new(document, CreateSettingsSnapshot()) { ExportOptions = new() { OutlineFonts = outlineFonts } };
     }
 
     [RelayCommand(CanExecute = nameof(CanLoadDocument))]
     private Task LoadDocumentAsync(string? filePath, CancellationToken cancellationToken) =>
+        IsFreeMode && SelectedCell is { } cell ? LoadCellAsync(cell, filePath ?? string.Empty) :
         RunOperationAsync(PdfLayOutOperation.Loading, async token =>
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -171,14 +177,14 @@ public partial class PdfLayOutViewModel : ObservableObject
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
             string target = Path.GetFullPath(outputPath);
-            PdfLayOutJob job = CreateJob();
+            PdfLayOutJob job = CreateJob(OutlineFontsOnExport);
             if (!string.Equals(Path.GetExtension(target), ".pdf", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("导出文件必须使用 .pdf 扩展名。", nameof(outputPath));
-            if (string.Equals(target, job.Document.FilePath, StringComparison.OrdinalIgnoreCase))
+            if (job.Sources.Keys.Any(path => string.Equals(target, path, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("导出路径不能与源 PDF 相同。");
             await _exportService!.ExportAsync(job, target, token);
             LastExportPath = target;
-            StatusMessage = $"拼版 PDF 已导出至：{target}";
+            StatusMessage = job.ExportOptions.OutlineFonts ? $"转曲拼版 PDF 已导出至：{target}" : $"拼版 PDF 已导出至：{target}";
         }, cancellationToken);
 
     [RelayCommand(CanExecute = nameof(CanPrint))]
@@ -192,6 +198,7 @@ public partial class PdfLayOutViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCancelOperation))]
     private void CancelOperation()
     {
+        StopFreeOperations();
         LoadDocumentCommand.Cancel();
         ExportPdfCommand.Cancel();
         PrintCommand.Cancel();
@@ -206,7 +213,7 @@ public partial class PdfLayOutViewModel : ObservableObject
     private void NextPage() => SelectedPageIndex++;
 
     [RelayCommand(CanExecute = nameof(CanRefreshPreview))]
-    private Task RefreshPreviewAsync() => QueuePreview();
+    private Task RefreshPreviewAsync() { _freePreviewCache.Clear(); return QueuePreview(); }
 
     internal void ReportInputError(string message)
     {
@@ -218,6 +225,7 @@ public partial class PdfLayOutViewModel : ObservableObject
 
     internal void StopPreview()
     {
+        StopFreeOperations();
         Interlocked.Increment(ref _previewRequestId);
         _previewCancellation?.Cancel();
         _previewCancellation = null;
@@ -227,6 +235,7 @@ public partial class PdfLayOutViewModel : ObservableObject
 
     private Task QueuePreview()
     {
+        if (IsFreeMode) return PreviewTask = QueueFreePreview();
         long requestId = Interlocked.Increment(ref _previewRequestId);
         _previewCancellation?.Cancel();
         _previewCancellation = null;
@@ -310,7 +319,25 @@ public partial class PdfLayOutViewModel : ObservableObject
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(SourceDocument))
+        if (e.PropertyName == nameof(ModeIndex))
+        {
+            if (ModeIndex is < 0 or > 1) { ModeIndex = 0; return; }
+            ModeRevision++;
+            StopFreeOperations();
+            _previewCancellation?.Cancel();
+            foreach (string property in new[] { nameof(IsFreeMode), nameof(IsRepeatMode), nameof(ModeSummary), nameof(CanEditGrid), nameof(CanEditCells) })
+                OnPropertyChanged(property);
+            NotifySourceChanged();
+            if (!_isUpdatingPaperSize) { RebuildLayout(); QueuePreview(); }
+            if (!_isApplyingPreset) NotifyPresetDirtyState();
+        }
+        else if (e.PropertyName == nameof(SelectedCell))
+        {
+            NotifySourceChanged();
+            NotifyCommandState();
+        }
+        else if (e.PropertyName == nameof(PendingLayoutChange)) NotifyCommandState();
+        else if (e.PropertyName == nameof(SourceDocument))
         {
             _isReplacingDocument = true;
             try { SelectedPageIndex = 0; }
@@ -336,6 +363,7 @@ public partial class PdfLayOutViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(IsBusy));
             OnPropertyChanged(nameof(CanEditGrid));
+            OnPropertyChanged(nameof(CanEditCells));
             NotifyCommandState();
             NotifyNavigationState();
             NotifyPresetState();
@@ -358,15 +386,28 @@ public partial class PdfLayOutViewModel : ObservableObject
                  or nameof(ShowCellBorders))
         {
             if (!_isUpdatingPaperSize)
+            {
                 RebuildLayout();
+                if (IsFreeMode && e.PropertyName is nameof(Columns) or nameof(Rows)) QueuePreview();
+            }
             if (e.PropertyName == nameof(IsAutomaticGrid))
                 OnPropertyChanged(nameof(CanEditGrid));
+            OnPropertyChanged(nameof(CanEditCells));
             if (!_isApplyingPreset) NotifyPresetDirtyState();
         }
     }
 
-    private void RebuildLayout() => CurrentLayout = CurrentSourcePage is { } page
-        ? PdfLayOutCalculator.Calculate(page, CreateSettingsSnapshot()) : null;
+    private void RebuildLayout()
+    {
+        SynchronizeCells();
+        var settings = CreateSettingsSnapshot();
+        var layout = IsFreeMode ? PdfLayOutCalculator.CalculateFree(settings, FreeContents)
+            : CurrentSourcePage is { } page ? PdfLayOutCalculator.Calculate(page, settings) : PdfLayOutCalculator.CalculateGrid(settings);
+        CurrentLayout = IsRepeatMode && SourceDocument is { } document ? layout with
+        {
+            Placements = layout.Placements.Select(p => p with { SourceDocumentId = document.FilePath }).ToArray(),
+        } : layout;
+    }
 
     private void NotifySourceChanged()
     {
@@ -374,8 +415,11 @@ public partial class PdfLayOutViewModel : ObservableObject
                      nameof(PreviewPageWidth), nameof(PreviewPageHeight), nameof(FileName), nameof(FileDetails), nameof(CurrentPageSizeText),
                      nameof(ValidationMessage), nameof(TrimmedPageSummary) })
             OnPropertyChanged(property);
+        OnPropertyChanged(nameof(ExportSuggestedName));
         OnPropertyChanged(nameof(SourcePages));
         OnPropertyChanged(nameof(PageCountText));
+        OnPropertyChanged(nameof(HasFontWarning));
+        OnPropertyChanged(nameof(FontWarningMessage));
         NotifyNavigationState();
     }
 
@@ -434,17 +478,6 @@ public partial class PdfLayOutViewModel : ObservableObject
 
     partial void OnSheetWidthChanged(double value) => SelectCustomPaperSize();
     partial void OnSheetHeightChanged(double value) => SelectCustomPaperSize();
-    partial void OnColumnsChanged(double value)
-    {
-        double normalized = PdfLayOutCalculator.NormalizeGridCount(value);
-        if (value != normalized) Columns = normalized;
-    }
-    partial void OnRowsChanged(double value)
-    {
-        double normalized = PdfLayOutCalculator.NormalizeGridCount(value);
-        if (value != normalized) Rows = normalized;
-    }
-
     private void SelectCustomPaperSize()
     {
         if (!_isUpdatingPaperSize) PaperSizeIndex = CustomPaperSizeIndex;

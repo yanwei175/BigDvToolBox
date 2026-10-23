@@ -63,6 +63,23 @@
                     </Canvas>
                 </Grid>
             </DataTemplate>
+            <DataTemplate x:Key="FreeCellTemplate" x:DataType="local:PdfLayOutCellViewModel">
+                <Button Background="Transparent" BorderThickness="0" Padding="0" MinWidth="0" MinHeight="0"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" UseLayoutRounding="False">
+                    <Grid Background="Transparent" UseLayoutRounding="False">
+                    <Canvas x:Name="CellCanvas" UseLayoutRounding="False">
+                        <Image x:Name="CellImage" Stretch="Fill" UseLayoutRounding="False" />
+                    </Canvas>
+                    <Border BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" IsHitTestVisible="False" />
+                    <Border x:Name="CellHighlight" BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                            Visibility="Collapsed" IsHitTestVisible="False" />
+                    <TextBlock x:Name="CellLabel" Margin="4" VerticalAlignment="Top" TextWrapping="Wrap"
+                               Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               IsHitTestVisible="False" />
+                    </Grid>
+                </Button>
+            </DataTemplate>
             <DataTemplate x:Key="PrintMarkLineTemplate">
                 <Line Stroke="{ThemeResource ImposerPrintMarkBrush}" UseLayoutRounding="False" />
             </DataTemplate>
@@ -92,33 +109,45 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="10">
-                        <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8A5;" />
-                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="PDF 拼版" />
-                    </StackPanel>
-                    <TextBlock
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="将 PDF 页面排列到印张上 · 单位：毫米 (mm)" />
-                    <Border
-                        Grid.Column="2"
-                        Padding="12,5"
-                        Background="{ThemeResource AccentFillColorTertiaryBrush}"
-                        CornerRadius="12">
-                        <TextBlock Style="{StaticResource HintStyle}" Text="重复拼版 · 毫米" />
-                    </Border>
-                </Grid>
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="10">
+                            <FontIcon Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8A5;" />
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="PDF 拼版" />
+                        </StackPanel>
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="将 PDF 页面排列到印张上 · 单位：毫米 (mm)" />
+                        <Border
+                            Grid.Column="2"
+                            Padding="12,5"
+                            Background="{ThemeResource AccentFillColorTertiaryBrush}"
+                            CornerRadius="12">
+                            <TextBlock Style="{StaticResource HintStyle}" Text="{x:Bind ViewModel.ModeSummary, Mode=OneWay}" />
+                        </Border>
+                    </Grid>
 
+                    <InfoBar Title="检测到未嵌入字体" Severity="Warning"
+                             IsOpen="{x:Bind ViewModel.HasFontWarning, Mode=OneWay}" IsClosable="False"
+                             Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.HasFontWarning), Mode=OneWay}"
+                             AutomationProperties.AutomationId="PdfLayOutFontWarning"
+                             AutomationProperties.LiveSetting="Polite">
+                        <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled">
+                            <TextBlock Text="{x:Bind ViewModel.FontWarningMessage, Mode=OneWay}" TextWrapping="Wrap"
+                                       IsTextSelectionEnabled="True" />
+                        </ScrollViewer>
+                    </InfoBar>
+                </StackPanel>
                 <Grid Grid.Row="1" ColumnSpacing="20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="340" />
@@ -396,12 +425,11 @@
                                     <StackPanel Spacing="20">
                                         <StackPanel Spacing="12">
                                             <TextBlock Style="{StaticResource SectionTitleStyle}" Text="方式" />
-                                            <ComboBox
-                                                Header="拼版方式"
-                                                SelectedIndex="0"
-                                                Style="{StaticResource SettingComboStyle}">
-                                                <x:String>重复拼版</x:String>
-                                            </ComboBox>
+                                            <ComboBox Header="拼版方式" Style="{StaticResource SettingComboStyle}"
+                                                          ItemsSource="{x:Bind ViewModel.Modes, Mode=OneTime}"
+                                                          SelectedIndex="{x:Bind ViewModel.ModeIndex, Mode=TwoWay}"
+                                                          IsEnabled="{x:Bind local:PdfLayOutPage.Not(ViewModel.IsBusy), Mode=OneWay}"
+                                                          AutomationProperties.AutomationId="PdfLayOutMode" />
                                         </StackPanel>
                                         <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                                         <StackPanel Spacing="12">
@@ -409,6 +437,7 @@
                                             <ToggleSwitch
                                                 Header="自动"
                                                 IsOn="{Binding IsAutomaticGrid, Mode=TwoWay}"
+                                                Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.IsRepeatMode), Mode=OneWay}"
                                                 OffContent="手动指定行列"
                                                 OnContent="按页面原始尺寸自动排列" />
                                             <Grid ColumnSpacing="12">
@@ -579,6 +608,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel
                                         VerticalAlignment="Center"
+                                        Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.IsRepeatMode), Mode=OneWay}"
                                         Orientation="Horizontal"
                                         Spacing="4">
                                         <Button
@@ -661,18 +691,30 @@
                                             </StackPanel>
                                         </Button>
 
-                                        <Button
+                                        <SplitButton
                                             AutomationProperties.AutomationId="PdfLayOutExport"
                                             AutomationProperties.Name="导出拼版 PDF"
                                             Click="ExportPdf_Click"
                                             IsEnabled="{x:Bind ViewModel.CanExport, Mode=OneWay}"
-                                            Style="{StaticResource AccentButtonStyle}"
-                                            ToolTipService.ToolTip="按当前版式导出整份文档，保留源页面的矢量内容。">
+                                            ToolTipService.ToolTip="导出拼版 PDF；展开可选择转曲后保存。">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <FontIcon FontSize="14" Glyph="&#xE74E;" />
                                                 <TextBlock Text="导出" />
                                             </StackPanel>
-                                        </Button>
+                                            <SplitButton.Flyout>
+                                                <Flyout Placement="Bottom">
+                                                    <StackPanel Width="280" Spacing="8">
+                                                        <CheckBox Content="转曲后保存"
+                                                                  IsChecked="{x:Bind ViewModel.OutlineFontsOnExport, Mode=TwoWay}"
+                                                                  IsEnabled="{x:Bind ViewModel.CanExport, Mode=OneWay}"
+                                                                  AutomationProperties.AutomationId="PdfLayOutOutlineFontsOnExport" />
+                                                        <TextBlock Text="只影响导出的 PDF。转曲不能恢复缺失的原字体，请先核对预览。"
+                                                                   TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    </StackPanel>
+                                                </Flyout>
+                                            </SplitButton.Flyout>
+                                        </SplitButton>
                                     </StackPanel>
                                 </Grid>
 
@@ -713,7 +755,7 @@
                                                     <Canvas UseLayoutRounding="False">
                                                         <Grid
                                                             x:Name="PreviewGrid"
-                                                            AutomationProperties.Name="重复拼版网格"
+                                                            AutomationProperties.Name="拼版容器网格"
                                                             UseLayoutRounding="False" />
                                                     </Canvas>
                                                     <Canvas
@@ -737,6 +779,7 @@
                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                             BorderThickness="1"
                                             CornerRadius="8"
+                                            IsHitTestVisible="False"
                                             Visibility="{x:Bind local:PdfLayOutPage.BoolToVisibility(ViewModel.HasPreviewMessage), Mode=OneWay}">
                                             <StackPanel Spacing="12">
                                                 <ProgressRing
