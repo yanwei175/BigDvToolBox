@@ -7,6 +7,8 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.InteropServices;
 using Windows.Foundation;
 using Windows.Graphics.Printing;
+using Windows.Graphics.Printing.OptionDetails;
+using Windows.Storage.Streams;
 using WinRT.Interop;
 
 namespace BigDvToolBox_App.Features.PdfLayOut;
@@ -66,6 +68,8 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
         private PrintManager? _manager;
         private PrintTask? _printTask;
         private PrintTaskOptions? _options;
+        private Task<PdfLayOutPrintTicket?>? _previewTicket;
+        private PrintCustomTextOptionDetails? _cropPreviewStatus;
         private long _generation;
         private bool _addingPages;
         private bool _disposed;
@@ -145,6 +149,7 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
                 _printTask.Options.PageRangeOptions.AllowCurrentPage = false;
                 _printTask.Options.PageRangeOptions.AllowCustomSetOfPages = true;
                 _printTask.Options.DisplayedOptions.Add(StandardPrintTaskOptions.CustomPageRanges);
+                ConfigureActualSizeOptions(_printTask.Options);
                 RecordOptions("Requested", _printTask.Options);
             }
             catch (Exception exception) { Fail("CreatePrintTask", exception); }
@@ -170,6 +175,7 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             if (_addingPages) return Task.CompletedTask;
             _generation++;
             _options = args.PrintTaskOptions;
+            _previewTicket = null;
             RecordOptions("Paginate", _options);
             _previewPages.Clear();
             _host.Children.Clear();
@@ -185,16 +191,20 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             using var stage = _diagnostics.Stage("PreviewPage", new { page = pageNumber });
             if (_options is null || _addingPages || pageNumber < 1 || pageNumber > _job.Sheets.Count) return;
             long generation = _generation;
+            PrintTaskOptions options = _options;
             if (_previewPages.TryGetValue(pageNumber, out Canvas? cached))
             {
                 _diagnostics.Record("PreviewPage.CacheHit", new { page = pageNumber });
                 _document.SetPreviewPage(pageNumber, cached);
                 return;
             }
-            PrintPageDescription description = _options.GetPageDescription((uint)(pageNumber - 1));
+            // 预览票据可能补充驱动边界；不能为缺少数据的预览臆造固定边距。
+            PdfLayOutPrintTicket? ticket = await (_previewTicket ??= ReadPrintTicketAsync(options, pageNumber - 1, "Preview"));
+            if (_disposed || _addingPages || generation != _generation) return;
+            PrintPageDescription description = options.GetPageDescription((uint)(pageNumber - 1));
             PdfLayOutSize sheet = _job.Sheets[pageNumber - 1].SheetSize;
             PdfLayOutPrintRasterSize size = PdfLayOutPrintGeometry.CreateRasterSize(sheet, 120);
-            Canvas page = await CreatePageAsync(pageNumber - 1, description, size, "Preview");
+            Canvas page = await CreatePageAsync(pageNumber - 1, description, size, "Preview", ticket);
             if (_disposed || _addingPages || generation != _generation) return;
             if (_previewPages.TryGetValue(pageNumber, out cached))
             {
@@ -229,6 +239,21 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
                     checked((uint)range.FirstPageNumber), checked((uint)range.LastPageNumber))).ToArray();
             var selectedPages = PdfLayOutPrintGeometry.SelectPages(_job.Sheets.Count, ranges);
             _diagnostics.Record("Final.PageSelection", new { pages = selectedPages.Select(index => index + 1).ToArray() });
+            PdfLayOutPrintTicket? ticket = await ReadPrintTicketAsync(options, selectedPages[0], "Final");
+            // WinUI 不公开写入 PageScaling 的接口；拒绝已知会缩放的票据，不能反向放大补偿。
+            try { ticket?.EnsureActualSize(); }
+            catch (InvalidOperationException exception)
+            {
+                // 先固定失败结果，再结束零页文档，防止 Windows 一直等待 AddPagesComplete。
+                Fail("Print.ActualSizeValidation", exception);
+                try
+                {
+                    using var completeStage = _diagnostics.Stage("AddPagesComplete.RejectedActualSize");
+                    _document.AddPagesComplete();
+                }
+                catch (Exception completionError) { _diagnostics.Error("AddPagesComplete.RejectedActualSize", completionError); }
+                return;
+            }
             foreach (int index in selectedPages)
             {
                 using var pageStage = _diagnostics.Stage("FinalPage", new { page = index + 1 });
@@ -236,7 +261,7 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
                 PrintPageDescription description = options.GetPageDescription((uint)index);
                 double dpi = description.DpiX > 0 && description.DpiY > 0 ? Math.Min(description.DpiX, description.DpiY) : 300;
                 PdfLayOutPrintRasterSize size = PdfLayOutPrintGeometry.CreateRasterSize(_job.Sheets[index].SheetSize, dpi);
-                Canvas page = await CreatePageAsync(index, description, size, "Final");
+                Canvas page = await CreatePageAsync(index, description, size, "Final", ticket);
                 _lifetime.Token.ThrowIfCancellationRequested();
                 using (_diagnostics.Stage("FinalPage.Layout", new { page = index + 1 })) AttachForLayout(page);
                 // AddPage 同步提交该页的绘制内容；随后释放视图，避免累积所有页的高分辨率像素。
@@ -247,7 +272,8 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             using (_diagnostics.Stage("AddPagesComplete")) _document.AddPagesComplete();
         }
 
-        private async Task<Canvas> CreatePageAsync(int index, PrintPageDescription description, PdfLayOutPrintRasterSize size, string phase)
+        private async Task<Canvas> CreatePageAsync(int index, PrintPageDescription description, PdfLayOutPrintRasterSize size, string phase,
+            PdfLayOutPrintTicket? ticket)
         {
             _diagnostics.RecordPage(phase, index, _job.Sheets[index].SheetSize, description.PageSize.Width, description.PageSize.Height,
                 new(description.ImageableRect.X, description.ImageableRect.Y, description.ImageableRect.Width, description.ImageableRect.Height),
@@ -270,14 +296,23 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
                 bitmap.Invalidate();
             }
             token.ThrowIfCancellationRequested();
+            bool preview = phase == "Preview";
+            PdfLayOutRect imageable = preview && ticket?.ImageableAreaDip is { } ticketArea ? ticketArea
+                : new(description.ImageableRect.X, description.ImageableRect.Y, description.ImageableRect.Width, description.ImageableRect.Height);
             PdfLayOutPrintVisualPlan plan = PdfLayOutPrintGeometry.CreateVisualPlan(_job.Sheets[index].SheetSize,
-                new(description.PageSize.Width, description.PageSize.Height));
-            _diagnostics.Record("Page.VisualPlan", new { phase, page = index + 1, paperDip = plan.Paper, sheetDip = plan.Sheet });
+                new(description.PageSize.Width, description.PageSize.Height), imageable);
+            _diagnostics.Record("Page.VisualPlan", new
+            {
+                phase, page = index + 1, applicationScale = 1, paperDip = plan.Paper, sheetDip = plan.Sheet,
+                printableAreaDip = plan.PrintableArea, contentClipDip = plan.ContentClip, plan.HasHardwareMargins,
+                imageableSource = preview && ticket?.ImageableAreaDip is not null ? "PrintTicket" : "PrintPageDescription",
+                previewHardwareBoundaryConfirmed = preview && plan.HasHardwareMargins,
+            });
             var page = new Canvas
             {
                 Width = plan.Paper.Width, Height = plan.Paper.Height, UseLayoutRounding = false,
                 FlowDirection = FlowDirection.LeftToRight,
-                Background = new SolidColorBrush(Microsoft.UI.Colors.White),
+                Background = preview ? new SolidColorBrush(Microsoft.UI.Colors.White) : null,
                 HighContrastAdjustment = ElementHighContrastAdjustment.None,
                 Clip = new RectangleGeometry { Rect = new Rect(0, 0, plan.Paper.Width, plan.Paper.Height) },
             };
@@ -288,8 +323,111 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
             };
             Canvas.SetLeft(image, plan.Sheet.X);
             Canvas.SetTop(image, plan.Sheet.Y);
-            page.Children.Add(image);
+            // 容器为整纸坐标系，只裁切内容；绝不把整张图片缩放到 ImageableRect。
+            var content = new Canvas
+            {
+                Width = plan.Paper.Width, Height = plan.Paper.Height, UseLayoutRounding = false,
+                Clip = new RectangleGeometry { Rect = ToRect(plan.ContentClip) },
+            };
+            content.Children.Add(image);
+            page.Children.Add(content);
+            if (preview)
+            {
+                AddHardwareCropPreview(page, plan);
+                UpdateCropPreviewStatus(plan);
+            }
             return page;
+        }
+
+        private static Rect ToRect(PdfLayOutRect rectangle) => new(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
+
+        private static void AddHardwareCropPreview(Canvas page, PdfLayOutPrintVisualPlan plan)
+        {
+            foreach (PdfLayOutRect area in plan.UnprintableAreas)
+            {
+                var mask = new Microsoft.UI.Xaml.Shapes.Rectangle
+                {
+                    Width = area.Width, Height = area.Height, IsHitTestVisible = false,
+                    Fill = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 220, 220, 220)),
+                };
+                Canvas.SetLeft(mask, area.X); Canvas.SetTop(mask, area.Y);
+                page.Children.Add(mask);
+            }
+            if (!plan.HasHardwareMargins) return;
+            var border = new Microsoft.UI.Xaml.Shapes.Rectangle
+            {
+                Width = plan.PrintableArea.Width, Height = plan.PrintableArea.Height, IsHitTestVisible = false,
+                Stroke = new SolidColorBrush(Microsoft.UI.Colors.DimGray), StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 4, 3 },
+            };
+            Canvas.SetLeft(border, plan.PrintableArea.X); Canvas.SetTop(border, plan.PrintableArea.Y);
+            page.Children.Add(border);
+        }
+
+        private void ConfigureActualSizeOptions(PrintTaskOptions options)
+        {
+            try
+            {
+                var details = PrintTaskOptionDetails.GetFromPrintTaskOptions(options);
+                var scale = details.CreateItemListOption("BigDvActualSize", "打印尺寸");
+                scale.AddItem("ActualSize", "实际大小 100%（超出范围裁切）");
+                scale.TrySetValue("ActualSize");
+                scale.State = PrintOptionStates.None;
+                details.DisplayedOptions.Add("BigDvActualSize");
+                _cropPreviewStatus = details.CreateTextOption("BigDvCropPreview", "预览裁切范围（灰色区域不打印）");
+                _cropPreviewStatus.TrySetValue("等待驱动提供可打印范围");
+                _cropPreviewStatus.State = PrintOptionStates.None;
+                details.DisplayedOptions.Add("BigDvCropPreview");
+            }
+            catch (Exception exception) { _diagnostics.Error("Print.CustomOptions", exception); }
+        }
+
+        private void UpdateCropPreviewStatus(PdfLayOutPrintVisualPlan plan)
+        {
+            string value = plan.HasHardwareMargins
+                ? $"可打印 {plan.PrintableArea.Width * 25.4 / 96:0.##} × {plan.PrintableArea.Height * 25.4 / 96:0.##} mm"
+                : "未报告硬件边界；最终以驱动返回范围为准";
+            try
+            {
+                if (_cropPreviewStatus is not null && !Equals(_cropPreviewStatus.Value, value))
+                    _cropPreviewStatus.TrySetValue(value);
+            }
+            catch (Exception exception) { _diagnostics.Error("Print.UpdateCropPreviewStatus", exception); }
+        }
+
+        private async Task<PdfLayOutPrintTicket?> ReadPrintTicketAsync(PrintTaskOptions options, int index, string phase)
+        {
+            try
+            {
+                using var stage = _diagnostics.Stage("ReadPrintTicket", new { phase, page = index + 1 });
+                PrintPageDescription description = options.GetPageDescription((uint)index);
+                var info = new PrintPageInfo { MediaSize = options.MediaSize, Orientation = options.Orientation, PageSize = description.PageSize };
+                using var stream = options.GetPagePrintTicket(info);
+                if (stream.Size == 0 || stream.Size > PdfLayOutPrintTicket.MaximumBytes)
+                    throw new InvalidDataException("打印票据为空或超过读取上限。");
+                using var reader = new DataReader(stream.GetInputStreamAt(0));
+                uint loaded = await reader.LoadAsync((uint)stream.Size).AsTask(_lifetime.Token);
+                if (loaded != stream.Size) throw new InvalidDataException("打印票据读取不完整。");
+                var bytes = new byte[checked((int)stream.Size)];
+                reader.ReadBytes(bytes);
+                using var input = new MemoryStream(bytes, writable: false);
+                PdfLayOutPrintTicket ticket = PdfLayOutPrintTicket.Parse(input);
+                _diagnostics.Record("Print.Ticket", new
+                {
+                    phase, page = index + 1, info.DpiX, info.DpiY,
+                    pageSizeDip = new PdfLayOutSize(info.PageSize.Width, info.PageSize.Height),
+                    mediaSize = info.MediaSize.ToString(), orientation = info.Orientation.ToString(),
+                    ticket.ScalingStatus, ticket.BlockingReason, ticket.Features, ticket.Parameters, ticket.ImageableAreaDip, ticket.Xml,
+                });
+                return ticket;
+            }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { throw; }
+            catch (Exception exception)
+            {
+                _diagnostics.Error($"PrintTicket.{phase}", exception);
+                _diagnostics.Record("Print.TicketUnavailable", new { phase, page = index + 1, applicationScale = 1, note = "应用保持原尺寸裁切；无法核实票据中的驱动缩放设置。" });
+                return null;
+            }
         }
 
         private void AttachForLayout(Canvas page)

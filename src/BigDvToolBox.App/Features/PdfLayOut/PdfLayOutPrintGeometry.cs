@@ -2,7 +2,13 @@ namespace BigDvToolBox_App.Features.PdfLayOut;
 
 internal readonly record struct PdfLayOutPrintPageRange(uint From, uint To);
 internal readonly record struct PdfLayOutPrintRasterSize(int Width, int Height);
-internal sealed record PdfLayOutPrintVisualPlan(PdfLayOutSize Paper, PdfLayOutRect Sheet);
+internal sealed record PdfLayOutPrintVisualPlan(PdfLayOutSize Paper, PdfLayOutRect Sheet)
+{
+    public PdfLayOutRect PrintableArea { get; init; }
+    public PdfLayOutRect ContentClip { get; init; }
+    public IReadOnlyList<PdfLayOutRect> UnprintableAreas { get; init; } = [];
+    public bool HasHardwareMargins => UnprintableAreas.Count > 0;
+}
 
 /// <summary>物理毫米、打印页 DIP 与栅格像素的转换。分辨率限制不改变纸上的尺寸。</summary>
 internal static class PdfLayOutPrintGeometry
@@ -10,11 +16,31 @@ internal static class PdfLayOutPrintGeometry
     internal const int MaximumRasterDpi = 600;
     internal const int MaximumRasterEdge = 16000;
     internal const long MaximumRasterPixels = 24_000_000;
-    public static PdfLayOutPrintVisualPlan CreateVisualPlan(PdfLayOutSize sheet, PdfLayOutSize paperInDip)
+    public static PdfLayOutPrintVisualPlan CreateVisualPlan(PdfLayOutSize sheet, PdfLayOutSize paperInDip,
+        PdfLayOutRect? imageableArea = null)
     {
         if (!sheet.IsValid || !paperInDip.IsValid) throw new InvalidOperationException("印张或打印纸张尺寸无效。");
         double width = sheet.Width * 96 / 25.4, height = sheet.Height * 96 / 25.4;
-        return new(paperInDip, new((paperInDip.Width - width) / 2, (paperInDip.Height - height) / 2, width, height));
+        var paperBounds = new PdfLayOutRect(0, 0, paperInDip.Width, paperInDip.Height);
+        var printable = imageableArea ?? paperBounds;
+        if (!double.IsFinite(printable.X) || !double.IsFinite(printable.Y) ||
+            !double.IsFinite(printable.Width) || !double.IsFinite(printable.Height) || printable.IsEmpty)
+            throw new InvalidOperationException("驱动返回的可打印区域无效。");
+        printable = printable.Intersect(paperBounds);
+        if (printable.IsEmpty) throw new InvalidOperationException("驱动返回的可打印区域不在纸张范围内。");
+        var placement = new PdfLayOutRect((paperInDip.Width - width) / 2, (paperInDip.Height - height) / 2, width, height);
+        PdfLayOutRect[] masks =
+        [
+            new(0, 0, paperInDip.Width, printable.Y),
+            new(0, printable.Bottom, paperInDip.Width, paperInDip.Height - printable.Bottom),
+            new(0, printable.Y, printable.X, printable.Height),
+            new(printable.Right, printable.Y, paperInDip.Width - printable.Right, printable.Height),
+        ];
+        return new(paperInDip, placement)
+        {
+            PrintableArea = printable, ContentClip = placement.Intersect(printable),
+            UnprintableAreas = masks.Where(r => !r.IsEmpty).ToArray(),
+        };
     }
 
     public static PdfLayOutPrintRasterSize CreateRasterSize(PdfLayOutSize sheet, double dpi)
