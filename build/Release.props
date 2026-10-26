@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- 成功生成绿色版 ZIP 后递增；普通编译不修改版本。 -->
-    <Version>1.0.10</Version>
+    <Version>1.0.11</Version>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
     <InformationalVersion>$(Version)</InformationalVersion>

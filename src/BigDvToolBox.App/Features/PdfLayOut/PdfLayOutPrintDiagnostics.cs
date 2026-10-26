@@ -27,12 +27,16 @@ internal sealed class PdfLayOutPrintDiagnostics : IDisposable
     private long _stageId;
     public string Id { get; } = Guid.NewGuid().ToString("N");
     public string? FilePath { get; private set; }
+    public bool IsEnabled => _writer is not null;
     public DateTimeOffset StartedAt { get; } = DateTimeOffset.Now;
     public string TaskName { get; }
     public bool HasSystemTask { get; set; }
 
     public PdfLayOutPrintDiagnostics(PdfLayOutJob job, string? directory = null)
     {
+        // 正常运行默认关闭；仅测试或专项排查显式提供目录时写日志。
+        TaskName = job.DisplayName;
+        if (directory is null) return;
         TaskName = $"{job.DisplayName} [{Id[..8]}]";
         try
         {
@@ -84,15 +88,23 @@ internal sealed class PdfLayOutPrintDiagnostics : IDisposable
 
     public void Capture(string name, Func<object> capture)
     {
+        if (!IsEnabled) return;
         try { Record(name, capture()); }
         catch (Exception exception) { Error(name + ".DiagnosticRead", exception); }
     }
 
     public IDisposable Stage(string name, object? data = null)
     {
+        if (!IsEnabled) return DisabledStage.Instance;
         long stageId = Interlocked.Increment(ref _stageId);
         Record(name + ".Begin", new { stageId, context = data });
         return new TimedStage(this, name, stageId);
+    }
+
+    private sealed class DisabledStage : IDisposable
+    {
+        public static readonly DisabledStage Instance = new();
+        public void Dispose() { }
     }
 
     private sealed class TimedStage(PdfLayOutPrintDiagnostics log, string name, long stageId) : IDisposable
@@ -122,6 +134,7 @@ internal sealed class PdfLayOutPrintDiagnostics : IDisposable
     // 系统队列可能在 Submitted 之后才失败。观察一分钟，只记录带本任务唯一名称的错误事件。
     public async Task ObserveSystemErrorsAsync()
     {
+        if (!IsEnabled) return;
         try
         {
             var seen = new HashSet<string>();

@@ -23,7 +23,7 @@ internal sealed class WindowsPdfLayOutPrintBackend(Func<nint> getWindowHandle, F
         catch (Exception exception) { diagnostics.Error("PrintBackend", exception); throw; }
         finally
         {
-            if (diagnostics.HasSystemTask) _ = diagnostics.ObserveSystemErrorsAsync();
+            if (diagnostics.IsEnabled && diagnostics.HasSystemTask) _ = diagnostics.ObserveSystemErrorsAsync();
             else diagnostics.Dispose();
         }
     }

@@ -14,6 +14,33 @@ public sealed class PdfLayOutPrintDiagnosticsTests
     { GridMode = PdfLayOutGridMode.Manual, Columns = 1, Rows = 1, Marks = new() { ShowCropMarks = false } });
 
     [TestMethod]
+    public async Task DefaultDiagnostics_AreDisabled_WithoutReadingDriverPropertiesOrObservingEvents()
+    {
+        var job = Job();
+        using var log = new PdfLayOutPrintDiagnostics(job);
+        Assert.IsFalse(log.IsEnabled);
+        Assert.IsNull(log.FilePath);
+        Assert.AreEqual(job.DisplayName, log.TaskName);
+        bool readDriver = false;
+        log.Capture("Driver", () => { readDriver = true; return new { copies = 1 }; });
+        Assert.IsFalse(readDriver);
+        log.HasSystemTask = true;
+        Task observation = log.ObserveSystemErrorsAsync();
+        Assert.IsTrue(observation.IsCompletedSuccessfully, "关闭诊断后不能启动一分钟的后台事件观察。");
+        await observation;
+
+        var backend = new Backend((_, _, diagnostics, _) =>
+        {
+            Assert.IsFalse(diagnostics.IsEnabled);
+            diagnostics.HasSystemTask = true;
+            return Task.FromResult(PdfLayOutPrintResult.Submitted);
+        });
+        var service = new WindowsPdfLayOutPrintService(new Generator(), backend);
+        Assert.AreEqual(PdfLayOutPrintResult.Submitted, await service.PrintAsync(job, CancellationToken.None));
+        Assert.IsNull(service.LastDiagnosticPath);
+    }
+
+    [TestMethod]
     public async Task Success_LogsSharedSessionPdfSizePaperDpiAndTimings_WithoutARealPrinter()
     {
         using var files = new Fixture();

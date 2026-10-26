@@ -49,7 +49,7 @@ public sealed class WindowsPdfLayOutPrintService : IPdfLayOutPrintService, IPdfL
         finally
         {
             diagnostics.Record("Print.End");
-            if (diagnostics.HasSystemTask) _ = diagnostics.ObserveSystemErrorsAsync();
+            if (diagnostics.IsEnabled && diagnostics.HasSystemTask) _ = diagnostics.ObserveSystemErrorsAsync();
             else diagnostics.Dispose();
         }
     }
