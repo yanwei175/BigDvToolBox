@@ -32,6 +32,10 @@ BigDvToolBox-<版本>-win-x64.zip，解压后运行 BigDvToolBox.exe，保留目
 OCR 需要 [Microsoft Visual C++ x64 运行库](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist)。
 用户配置保存在本地应用数据目录。新版通过 Releases 手动下载，软件没有自动更新。
 
+当前开发版本为使用原生 TableView，采用 Windows App SDK **2.5.4-experimental**。
+结果表格由控件处理固定表头和可调列宽，保持 48 DIP 行高和单行文本省略。
+TableView 当前仅支持单行高亮选中；批量参与执行仍由每行复选框控制。
+
 ## 开发与发布
 
 需要 .NET 10 SDK、Visual Studio 2026 的 Windows/WinUI 开发组件和 Windows SDK。

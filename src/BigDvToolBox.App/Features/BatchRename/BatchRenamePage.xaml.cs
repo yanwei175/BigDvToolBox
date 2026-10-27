@@ -1,14 +1,11 @@
 using BigDvToolBox.Renaming.Core;
-using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Windows.Storage.Pickers;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.System;
 
 namespace BigDvToolBox_App.Features.BatchRename;
 
@@ -22,8 +19,6 @@ public sealed partial class BatchRenamePage : Page
     private Guid[] _methodOrderBeforeDrag = [];
     private RenameMethodViewModel? _draggedMethod;
     private readonly string _methodDragToken = Guid.NewGuid().ToString("N");
-    private readonly HashSet<ScrollViewer> _synchronizedScrollers = [];
-    private readonly InputCursor _resizeCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
 
     public BatchRenamePage()
     {
@@ -31,12 +26,9 @@ public sealed partial class BatchRenamePage : Page
         // 编辑器中的输入控件可能处理指针事件，仍需同步当前方法的选中状态。
         MethodList.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(MethodItem_PointerPressed), true);
         MethodList.GotFocus += MethodItem_GotFocus;
-        FileList.Loaded += RenameList_Loaded;
-        FolderList.Loaded += RenameList_Loaded;
     }
 
     public static Visibility SelectionVisibility(bool selected) => selected ? Visibility.Visible : Visibility.Collapsed;
-    public static GridLength ColumnWidth(double width) => new(width);
 
     private void MethodList_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
@@ -63,49 +55,6 @@ public sealed partial class BatchRenamePage : Page
         ViewModel.CompleteMethodReorder(_draggedMethod, _methodOrderBeforeDrag);
         _draggedMethod = null;
         _methodOrderBeforeDrag = [];
-    }
-
-    private void Column_DragDelta(object sender, DragDeltaEventArgs e)
-    {
-        ProtectedCursor = _resizeCursor;
-        if (sender is FrameworkElement { Tag: string tag }) ResizeColumn(tag, e.HorizontalChange);
-    }
-
-    private void Column_PointerEntered(object sender, PointerRoutedEventArgs e) => ProtectedCursor = _resizeCursor;
-    private void Column_PointerExited(object sender, PointerRoutedEventArgs e) => ProtectedCursor = null;
-    private void Column_DragCompleted(object sender, DragCompletedEventArgs e) => ProtectedCursor = null;
-
-    private void Column_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: string tag } || e.Key is not (VirtualKey.Left or VirtualKey.Right)) return;
-        ResizeColumn(tag, e.Key == VirtualKey.Left ? -8 : 8);
-        e.Handled = true;
-    }
-
-    private void ResizeColumn(string tag, double delta)
-    {
-        string[] parts = tag.Split(':');
-        if (parts.Length != 2 || !Enum.TryParse<RenameTableColumn>(parts[1], out var column)) return;
-        (parts[0] == "Files" ? ViewModel.FileColumns : ViewModel.FolderColumns).Resize(column, delta);
-    }
-
-    private void RenameList_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not ListView list || FindScrollViewer(list) is not { } scroller || !_synchronizedScrollers.Add(scroller)) return;
-        var header = list == FileList ? FileHeaderScroller : FolderHeaderScroller;
-        scroller.ViewChanged += (_, _) => header.ChangeView(scroller.HorizontalOffset, null, null, true);
-        header.ChangeView(scroller.HorizontalOffset, null, null, true);
-    }
-
-    private static ScrollViewer? FindScrollViewer(DependencyObject parent)
-    {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is ScrollViewer scroller) return scroller;
-            if (FindScrollViewer(child) is { } nested) return nested;
-        }
-        return null;
     }
 
     private void MethodItem_PointerPressed(object sender, PointerRoutedEventArgs e) => SelectMethodFromSource(e.OriginalSource);
@@ -207,8 +156,8 @@ public sealed partial class BatchRenamePage : Page
 
     private void RemoveRows_Click(object sender, RoutedEventArgs e)
     {
-        var list = ViewModel.IsFolderMode ? FolderList : FileList;
-        ViewModel.RemoveRows(list.SelectedItems.Cast<RenameRowViewModel>().ToArray());
+        var table = ViewModel.IsFolderMode ? FolderTable : FileTable;
+        if (table.SelectedItem is RenameRowViewModel selected) ViewModel.RemoveRows([selected]);
     }
 
     private void ClearRows_Click(object sender, RoutedEventArgs e) => ViewModel.RemoveRows(ViewModel.CurrentRows.ToArray());

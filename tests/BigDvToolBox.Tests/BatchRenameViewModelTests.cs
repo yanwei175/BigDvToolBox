@@ -32,27 +32,6 @@ public sealed class BatchRenameViewModelTests
     }
 
     [TestMethod]
-    public async Task ColumnWidths_AreSharedByRowsButIndependentBetweenTabs()
-    {
-        using var disk = new TestDirectory(); var vm = new BatchRenameViewModel();
-        try
-        {
-            await vm.AddPathsAsync([disk.File("a.txt"), disk.File("b.txt")]);
-            double initialTotal = vm.FileColumns.TotalWidth;
-            vm.FileColumns.Resize(RenameTableColumn.Directory, 80);
-            Assert.AreEqual(initialTotal + 80, vm.FileColumns.TotalWidth);
-            Assert.AreSame(vm.FileColumns, vm.Files[0].Columns);
-            Assert.AreSame(vm.Files[0].Columns, vm.Files[1].Columns);
-            Assert.AreEqual(220d, vm.FolderColumns.DirectoryWidth);
-            vm.FileColumns.Resize(RenameTableColumn.Directory, -10000);
-            Assert.AreEqual(80d, vm.FileColumns.DirectoryWidth);
-            vm.FileColumns.Resize(RenameTableColumn.Directory, 10000);
-            Assert.AreEqual(1200d, vm.FileColumns.DirectoryWidth);
-        }
-        finally { vm.Cancel(); }
-    }
-
-    [TestMethod]
     public void Selection_TracksCurrentMethodWithoutChangingPreset()
     {
         var vm = new BatchRenameViewModel();

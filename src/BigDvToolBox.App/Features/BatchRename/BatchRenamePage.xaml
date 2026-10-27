@@ -5,38 +5,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:core="using:BigDvToolBox.Renaming.Core"
     xmlns:local="using:BigDvToolBox_App.Features.BatchRename"
+    xmlns:tabular="using:Microsoft.UI.Xaml.Controls.Tabular"
     Loaded="Page_Loaded"
     Unloaded="Page_Unloaded">
     <Page.Resources>
-        <Style x:Key="RenameResultItemStyle" TargetType="ListViewItem">
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Height" Value="48" />
-            <Setter Property="MinHeight" Value="48" />
-            <Setter Property="MaxHeight" Value="48" />
-            <Setter Property="Padding" Value="0" />
-        </Style>
-        <Style x:Key="ColumnResizeThumbStyle" TargetType="Thumb">
-            <Setter Property="Width" Value="12" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
-            <Setter Property="Margin" Value="0,0,-6,0" />
-            <Setter Property="IsTabStop" Value="True" />
-            <Setter Property="UseSystemFocusVisuals" Value="True" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Thumb">
-                        <Border Background="Transparent">
-                            <Rectangle
-                                Width="1"
-                                Margin="0,8"
-                                HorizontalAlignment="Center"
-                                Fill="{ThemeResource ControlStrongStrokeColorDefaultBrush}" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style
             x:Key="CompactMethodButtonStyle"
             BasedOn="{StaticResource DefaultAppBarButtonStyle}"
@@ -276,62 +248,53 @@
             NumberingTemplate="{StaticResource MethodTemplate5}"
             RemoveCharactersTemplate="{StaticResource MethodTemplate3}"
             ReplaceTemplate="{StaticResource MethodTemplate0}" />
-        <DataTemplate x:Key="RenameRowTemplate" x:DataType="local:RenameRowViewModel">
-            <Grid
-                Width="{x:Bind Columns.TotalWidth, Mode=OneWay}"
-                Height="48"
-                Padding="12,4"
-                ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="40" />
-                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.OriginalWidth), Mode=OneWay}" />
-                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.TargetWidth), Mode=OneWay}" />
-                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.DirectoryWidth), Mode=OneWay}" />
-                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.StatusWidth), Mode=OneWay}" />
-                </Grid.ColumnDefinitions>
-                <CheckBox
-                    Width="24"
-                    MinWidth="24"
-                    Padding="0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Center"
+        <Style TargetType="tabular:TableViewRow">
+            <Setter Property="Height" Value="48" />
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="MaxHeight" Value="48" />
+        </Style>
+        <Style x:Key="RenameCellTextStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <DataTemplate x:Key="RenameIncludedCell" x:DataType="local:RenameRowViewModel">
+            <Grid Height="32" Margin="8,0">
+                <CheckBox Width="24" MinWidth="24" Padding="0"
+                    HorizontalAlignment="Left" VerticalAlignment="Center"
                     AutomationProperties.AutomationId="RenameRowIncluded"
                     AutomationProperties.Name="参与重命名"
                     IsChecked="{x:Bind Included, Mode=TwoWay}" />
-                <TextBlock
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    IsTextSelectionEnabled="True"
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="RenameOriginalCell" x:DataType="local:RenameRowViewModel">
+            <Grid Height="32" Margin="8,0">
+                <TextBlock Style="{StaticResource RenameCellTextStyle}"
                     Text="{x:Bind OriginalName, Mode=OneWay}"
-                    TextTrimming="CharacterEllipsis"
-                    TextWrapping="NoWrap"
                     ToolTipService.ToolTip="{x:Bind OriginalName, Mode=OneWay}" />
-                <TextBlock
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    IsTextSelectionEnabled="True"
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="RenameTargetCell" x:DataType="local:RenameRowViewModel">
+            <Grid Height="32" Margin="8,0">
+                <TextBlock Style="{StaticResource RenameCellTextStyle}"
                     Text="{x:Bind TargetName, Mode=OneWay}"
-                    TextTrimming="CharacterEllipsis"
-                    TextWrapping="NoWrap"
                     ToolTipService.ToolTip="{x:Bind TargetName, Mode=OneWay}" />
-                <TextBlock
-                    Grid.Column="3"
-                    VerticalAlignment="Center"
-                    IsTextSelectionEnabled="True"
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="RenameDirectoryCell" x:DataType="local:RenameRowViewModel">
+            <Grid Height="32" Margin="8,0">
+                <TextBlock Style="{StaticResource RenameCellTextStyle}"
                     Text="{x:Bind DirectoryPath, Mode=OneWay}"
-                    TextTrimming="CharacterEllipsis"
-                    TextWrapping="NoWrap"
                     ToolTipService.ToolTip="{x:Bind DirectoryPath, Mode=OneWay}" />
-                <TextBlock
-                    Grid.Column="4"
-                    VerticalAlignment="Center"
-                    IsTextSelectionEnabled="True"
-                    TextTrimming="CharacterEllipsis"
-                    TextWrapping="NoWrap"
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="RenameStatusCell" x:DataType="local:RenameRowViewModel">
+            <Grid Height="32" Margin="8,0">
+                <TextBlock Style="{StaticResource RenameCellTextStyle}"
                     ToolTipService.ToolTip="{x:Bind StatusDisplay, Mode=OneWay}">
                     <Run Text="{x:Bind Status, Mode=OneWay}" />
                     <Run Text=" " />
-                    <Run Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind Error, Mode=OneWay}" />
+                    <Run Text="{x:Bind Error, Mode=OneWay}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                 </TextBlock>
             </Grid>
         </DataTemplate>
@@ -663,138 +626,42 @@
                                 Content="包含子目录"
                                 IsChecked="{x:Bind ViewModel.IncludeSubdirectories, Mode=TwoWay}" />
                         </Grid>
-                        <Border
+                        <tabular:TableView
+                            x:Name="FileTable"
                             Grid.Row="2"
+                            AutomationProperties.AutomationId="RenameFileTable"
+                            AutomationProperties.Name="文件重命名预览"
                             AllowDrop="True"
-                            Background="Transparent"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="{StaticResource ControlCornerRadius}"
                             DragOver="Items_DragOver"
-                            Drop="Items_Drop">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="40" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-                                <ScrollViewer
-                                    x:Name="FileHeaderScroller"
-                                    Height="40"
-                                    HorizontalScrollBarVisibility="Hidden"
-                                    HorizontalScrollMode="Disabled"
-                                    IsTabStop="False"
-                                    VerticalScrollBarVisibility="Disabled"
-                                    VerticalScrollMode="Disabled">
-                                    <Grid
-                                        Width="{x:Bind ViewModel.FileColumns.TotalWidth, Mode=OneWay}"
-                                        Padding="12,0"
-                                        Background="{ThemeResource LayerFillColorDefaultBrush}"
-                                        ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.OriginalWidth), Mode=OneWay}" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.TargetWidth), Mode=OneWay}" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.DirectoryWidth), Mode=OneWay}" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.StatusWidth), Mode=OneWay}" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            Text="参与"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="原名称"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="1"
-                                            AutomationProperties.AutomationId="ResizeFileOriginalColumn"
-                                            AutomationProperties.Name="调整原名称列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Files:Original"
-                                            ToolTipService.ToolTip="拖动调整原名称列宽，也可使用左右方向键" />
-                                        <TextBlock
-                                            Grid.Column="2"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="新名称"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="2"
-                                            AutomationProperties.AutomationId="ResizeFileTargetColumn"
-                                            AutomationProperties.Name="调整新名称列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Files:Target"
-                                            ToolTipService.ToolTip="拖动调整新名称列宽，也可使用左右方向键" />
-                                        <TextBlock
-                                            Grid.Column="3"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="路径"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="3"
-                                            AutomationProperties.AutomationId="ResizeFileDirectoryColumn"
-                                            AutomationProperties.Name="调整路径列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Files:Directory"
-                                            ToolTipService.ToolTip="拖动调整路径列宽，也可使用左右方向键" />
-                                        <TextBlock
-                                            Grid.Column="4"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="状态／错误"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="4"
-                                            AutomationProperties.AutomationId="ResizeFileStatusColumn"
-                                            AutomationProperties.Name="调整状态／错误列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Files:Status"
-                                            ToolTipService.ToolTip="拖动调整状态／错误列宽，也可使用左右方向键" />
-                                    </Grid>
-                                </ScrollViewer>
-                                <ListView
-                                    x:Name="FileList"
-                                    Grid.Row="1"
-                                    Padding="0"
-                                    AutomationProperties.AutomationId="RenameFileList"
-                                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
-                                    IsMultiSelectCheckBoxEnabled="False"
-                                    ItemContainerStyle="{StaticResource RenameResultItemStyle}"
-                                    ItemTemplate="{StaticResource RenameRowTemplate}"
-                                    ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
-                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                    ScrollViewer.HorizontalScrollMode="Enabled"
-                                    SelectionMode="Extended" />
-                            </Grid>
-                        </Border>
+                            Drop="Items_Drop"
+                            IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                            ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
+                            HeadersVisibility="Column"
+                            GridLinesVisibility="Horizontal"
+                            Density="Comfortable"
+                            IsReadOnly="True"
+                            SelectionMode="Single"
+                            CanUserResizeColumns="True"
+                            CanUserSortColumns="False">
+                            <tabular:TableView.Columns>
+                                <tabular:TableViewTemplateColumn Header="参与" Width="64" MinWidth="64" MaxWidth="64"
+                                    CanResize="False" FrozenEdge="Leading" CellTemplate="{StaticResource RenameIncludedCell}" />
+                                <tabular:TableViewTemplateColumn Header="原名称" Width="160" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameOriginalCell}" />
+                                <tabular:TableViewTemplateColumn Header="新名称" Width="180" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameTargetCell}" />
+                                <tabular:TableViewTemplateColumn Header="路径" Width="220" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameDirectoryCell}" />
+                                <tabular:TableViewTemplateColumn Header="状态／错误" Width="240" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameStatusCell}" />
+                            </tabular:TableView.Columns>
+                            <tabular:TableView.EmptyTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Text="拖入文件或文件夹，或使用上方按钮添加。" TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </tabular:TableView.EmptyTemplate>
+                        </tabular:TableView>
                         <TextBlock
                             Grid.Row="3"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -875,138 +742,42 @@
                                 Content="包含子目录"
                                 IsChecked="{x:Bind ViewModel.IncludeSubdirectories, Mode=TwoWay}" />
                         </Grid>
-                        <Border
+                        <tabular:TableView
+                            x:Name="FolderTable"
                             Grid.Row="2"
+                            AutomationProperties.AutomationId="RenameFolderTable"
+                            AutomationProperties.Name="文件夹重命名预览"
                             AllowDrop="True"
-                            Background="Transparent"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="{StaticResource ControlCornerRadius}"
                             DragOver="Items_DragOver"
-                            Drop="Items_Drop">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="40" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-                                <ScrollViewer
-                                    x:Name="FolderHeaderScroller"
-                                    Height="40"
-                                    HorizontalScrollBarVisibility="Hidden"
-                                    HorizontalScrollMode="Disabled"
-                                    IsTabStop="False"
-                                    VerticalScrollBarVisibility="Disabled"
-                                    VerticalScrollMode="Disabled">
-                                    <Grid
-                                        Width="{x:Bind ViewModel.FolderColumns.TotalWidth, Mode=OneWay}"
-                                        Padding="12,0"
-                                        Background="{ThemeResource LayerFillColorDefaultBrush}"
-                                        ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.OriginalWidth), Mode=OneWay}" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.TargetWidth), Mode=OneWay}" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.DirectoryWidth), Mode=OneWay}" />
-                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.StatusWidth), Mode=OneWay}" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            Text="参与"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="原名称"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="1"
-                                            AutomationProperties.AutomationId="ResizeFolderOriginalColumn"
-                                            AutomationProperties.Name="调整原名称列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Folders:Original"
-                                            ToolTipService.ToolTip="拖动调整原名称列宽，也可使用左右方向键" />
-                                        <TextBlock
-                                            Grid.Column="2"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="新名称"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="2"
-                                            AutomationProperties.AutomationId="ResizeFolderTargetColumn"
-                                            AutomationProperties.Name="调整新名称列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Folders:Target"
-                                            ToolTipService.ToolTip="拖动调整新名称列宽，也可使用左右方向键" />
-                                        <TextBlock
-                                            Grid.Column="3"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="路径"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="3"
-                                            AutomationProperties.AutomationId="ResizeFolderDirectoryColumn"
-                                            AutomationProperties.Name="调整路径列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Folders:Directory"
-                                            ToolTipService.ToolTip="拖动调整路径列宽，也可使用左右方向键" />
-                                        <TextBlock
-                                            Grid.Column="4"
-                                            Margin="0,0,8,0"
-                                            VerticalAlignment="Center"
-                                            Text="状态／错误"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="NoWrap" />
-                                        <Thumb
-                                            Grid.Column="4"
-                                            AutomationProperties.AutomationId="ResizeFolderStatusColumn"
-                                            AutomationProperties.Name="调整状态／错误列宽"
-                                            DragCompleted="Column_DragCompleted"
-                                            DragDelta="Column_DragDelta"
-                                            KeyDown="Column_KeyDown"
-                                            PointerEntered="Column_PointerEntered"
-                                            PointerExited="Column_PointerExited"
-                                            Style="{StaticResource ColumnResizeThumbStyle}"
-                                            Tag="Folders:Status"
-                                            ToolTipService.ToolTip="拖动调整状态／错误列宽，也可使用左右方向键" />
-                                    </Grid>
-                                </ScrollViewer>
-                                <ListView
-                                    x:Name="FolderList"
-                                    Grid.Row="1"
-                                    Padding="0"
-                                    AutomationProperties.AutomationId="RenameFolderList"
-                                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
-                                    IsMultiSelectCheckBoxEnabled="False"
-                                    ItemContainerStyle="{StaticResource RenameResultItemStyle}"
-                                    ItemTemplate="{StaticResource RenameRowTemplate}"
-                                    ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}"
-                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                    ScrollViewer.HorizontalScrollMode="Enabled"
-                                    SelectionMode="Extended" />
-                            </Grid>
-                        </Border>
+                            Drop="Items_Drop"
+                            IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                            ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}"
+                            HeadersVisibility="Column"
+                            GridLinesVisibility="Horizontal"
+                            Density="Comfortable"
+                            IsReadOnly="True"
+                            SelectionMode="Single"
+                            CanUserResizeColumns="True"
+                            CanUserSortColumns="False">
+                            <tabular:TableView.Columns>
+                                <tabular:TableViewTemplateColumn Header="参与" Width="64" MinWidth="64" MaxWidth="64"
+                                    CanResize="False" FrozenEdge="Leading" CellTemplate="{StaticResource RenameIncludedCell}" />
+                                <tabular:TableViewTemplateColumn Header="原名称" Width="160" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameOriginalCell}" />
+                                <tabular:TableViewTemplateColumn Header="新名称" Width="180" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameTargetCell}" />
+                                <tabular:TableViewTemplateColumn Header="路径" Width="220" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameDirectoryCell}" />
+                                <tabular:TableViewTemplateColumn Header="状态／错误" Width="240" MinWidth="80" MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameStatusCell}" />
+                            </tabular:TableView.Columns>
+                            <tabular:TableView.EmptyTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Text="拖入文件夹，或使用上方按钮添加。" TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </tabular:TableView.EmptyTemplate>
+                        </tabular:TableView>
                         <TextBlock
                             Grid.Row="3"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"

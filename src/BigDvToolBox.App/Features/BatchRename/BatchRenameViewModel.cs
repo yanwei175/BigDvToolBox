@@ -8,7 +8,6 @@ namespace BigDvToolBox_App.Features.BatchRename;
 
 public partial class RenameRowViewModel(string path, EntryKind kind) : ObservableObject
 {
-    public RenameTableColumns Columns { get; init; } = new();
     public EntryKind Kind { get; } = kind;
     public long ImportOrder { get; init; }
     [ObservableProperty] public partial string CurrentPath { get; set; } = path;
@@ -30,8 +29,6 @@ public partial class BatchRenameViewModel : ObservableObject
     public ObservableCollection<RenameRowViewModel> Files { get; } = [];
     public ObservableCollection<RenameRowViewModel> Folders { get; } = [];
     public ObservableCollection<RenamePreset> Presets { get; } = [];
-    public RenameTableColumns FileColumns { get; } = new();
-    public RenameTableColumns FolderColumns { get; } = new();
     public ObservableCollection<RenameRowViewModel> CurrentRows => ActiveTabIndex == 0 ? Files : Folders;
     public bool IsFolderMode => ActiveTabIndex == 1;
     public bool CanEdit => !IsBusy;
@@ -162,7 +159,7 @@ public partial class BatchRenameViewModel : ObservableObject
             {
                 if (!existing.Add(path)) continue;
                 var row = new RenameRowViewModel(path, folders ? EntryKind.Folder : EntryKind.File)
-                { ImportOrder = _nextImportOrder++, Columns = folders ? FolderColumns : FileColumns };
+                { ImportOrder = _nextImportOrder++ };
                 row.PropertyChanged += RowChanged; rows.Add(row);
             }
             SortRows(); StatusText = $"已加载 {rows.Count} 个{(folders ? "文件夹" : "文件")}，路径重复的项目已忽略。";
