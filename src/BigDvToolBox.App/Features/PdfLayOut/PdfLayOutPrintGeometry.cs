@@ -8,6 +8,9 @@ internal sealed record PdfLayOutPrintVisualPlan(PdfLayOutSize Paper, PdfLayOutRe
     public PdfLayOutRect ContentClip { get; init; }
     public IReadOnlyList<PdfLayOutRect> UnprintableAreas { get; init; } = [];
     public bool HasHardwareMargins => UnprintableAreas.Count > 0;
+    /// <summary>从版式毫米坐标映射到整纸 DIP；不以可打印区域左上角作为新原点。</summary>
+    public PdfLayOutPoint SheetMillimetersToPaperDip(PdfLayOutPoint point) =>
+        new(Sheet.X + point.X * 96 / 25.4, Sheet.Y + point.Y * 96 / 25.4);
 }
 
 /// <summary>物理毫米、打印页 DIP 与栅格像素的转换。分辨率限制不改变纸上的尺寸。</summary>

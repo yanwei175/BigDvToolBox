@@ -1,6 +1,6 @@
 # BigDvToolBox
 
-YanWei 开发的 Windows 桌面工具箱，使用 C# / .NET 10 / WinUI 3（Windows App SDK 2.5）。
+Windows 桌面工具箱，使用 C# / .NET 10 / WinUI 3（Windows App SDK 2.5）。
 
 包含 PDF 拼版与矢量导出、系统打印、PDF 字体转曲、OCR 文件重命名、
 图片批处理、单位转换等工具。
