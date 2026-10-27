@@ -3,6 +3,7 @@ using BigDvToolBox_App.Features.ImageProcessing;
 using BigDvToolBox_App.Features.PdfLayOut;
 using BigDvToolBox_App.Features.PdfOutlineFonts;
 using BigDvToolBox_App.Features.RenameByOCR;
+using BigDvToolBox_App.Features.BatchRename;
 using BigDvToolBox_App.Navigation;
 using BigDvToolBox_App.ViewModels;
 using BigDvToolBox_App.Pages;
@@ -49,6 +50,12 @@ namespace BigDvToolBox_App
                 Symbol.Rename,
                 typeof(RenameByOcrPage),
                 "识别图片中的文字，并根据识别结果批量整理文件名。"),
+            new(
+                "batchRename",
+                "批量重命名",
+                Symbol.Rename,
+                typeof(BatchRenamePage),
+                "组合文字替换、插入、删除和序号等方法，预览并批量重命名文件或文件夹。"),
             new(
                 "pdfOutlineFonts",
                 "PDF 字体转曲",
@@ -235,7 +242,7 @@ namespace BigDvToolBox_App
             }
         }
 
-        private void ToolTabView_TabCloseRequested(
+        private async void ToolTabView_TabCloseRequested(
             TabView sender,
             TabViewTabCloseRequestedEventArgs args)
         {
@@ -246,7 +253,13 @@ namespace BigDvToolBox_App
                 return;
             }
 
+            if (tab.Content is Frame { Content: BatchRenamePage renamePage } && !await renamePage.CanCloseAsync())
+            {
+                return;
+            }
+
             int closedIndex = sender.TabItems.IndexOf(tab);
+            if (closedIndex < 0) return;
             bool wasSelected = ReferenceEquals(sender.SelectedItem, tab);
 
             _openTabs.Remove(pageId);

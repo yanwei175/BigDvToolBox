@@ -5,6 +5,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/src/">
+    <Project Path="src/BigDvToolBox.Renaming.Core/BigDvToolBox.Renaming.Core.csproj" />
     <Project Path="src/BigDvToolBox.App/BigDvToolBox.App.csproj" Id="8989ac2a-e42f-4fc9-b930-28c585a0cfe4">
       <Platform Solution="*|ARM64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
@@ -13,6 +14,7 @@
     </Project>
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/BigDvToolBox.Renaming.Core.Tests/BigDvToolBox.Renaming.Core.Tests.csproj" />
     <Project Path="tests/BigDvToolBox.Tests/BigDvToolBox.Tests.csproj" />
   </Folder>
 </Solution>

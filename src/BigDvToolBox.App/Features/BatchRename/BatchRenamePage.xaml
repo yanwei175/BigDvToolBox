@@ -1,0 +1,1043 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="BigDvToolBox_App.Features.BatchRename.BatchRenamePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:core="using:BigDvToolBox.Renaming.Core"
+    xmlns:local="using:BigDvToolBox_App.Features.BatchRename"
+    Loaded="Page_Loaded"
+    Unloaded="Page_Unloaded">
+    <Page.Resources>
+        <Style x:Key="RenameResultItemStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="MaxHeight" Value="48" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style x:Key="ColumnResizeThumbStyle" TargetType="Thumb">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,0,-6,0" />
+            <Setter Property="IsTabStop" Value="True" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="Transparent">
+                            <Rectangle
+                                Width="1"
+                                Margin="0,8"
+                                HorizontalAlignment="Center"
+                                Fill="{ThemeResource ControlStrongStrokeColorDefaultBrush}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style
+            x:Key="CompactMethodButtonStyle"
+            BasedOn="{StaticResource DefaultAppBarButtonStyle}"
+            TargetType="AppBarButton">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="MinWidth" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="MinHeight" Value="40" />
+        </Style>
+        <DataTemplate x:Key="MethodTemplate0" x:DataType="local:RenameMethodViewModel">
+            <StackPanel Spacing="8">
+                <TextBox
+                    AutomationProperties.AutomationId="ReplaceFind"
+                    Header="查找内容"
+                    Text="{x:Bind Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox
+                    AutomationProperties.AutomationId="ReplaceWith"
+                    Header="替换为"
+                    Text="{x:Bind Replacement, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="ReplaceOccurrenceMode"
+                    Header="替换位置"
+                    SelectedIndex="{x:Bind OccurrenceMode, Mode=TwoWay}">
+                    <x:String>全部匹配</x:String>
+                    <x:String>指定第 N 个匹配</x:String>
+                </ComboBox>
+                <NumberBox
+                    AutomationProperties.AutomationId="ReplaceOccurrenceNumber"
+                    Header="第 N 个匹配（1 起算）"
+                    IsEnabled="{x:Bind IsSpecificOccurrence, Mode=OneWay}"
+                    Maximum="2147483647"
+                    Minimum="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind OccurrenceNumber, Mode=TwoWay}" />
+                <CheckBox
+                    AutomationProperties.AutomationId="ReplaceMatchCase"
+                    Content="区分大小写"
+                    IsChecked="{x:Bind MatchCase, Mode=TwoWay}" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MethodScope"
+                    Header="应用到"
+                    IsEnabled="{x:Bind CanChooseScope, Mode=OneWay}"
+                    SelectedIndex="{x:Bind ScopeIndex, Mode=TwoWay}">
+                    <x:String>文件名</x:String>
+                    <x:String>文件名＋扩展名</x:String>
+                </ComboBox>
+                <TextBlock
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ScopeHint, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="MethodTemplate1" x:DataType="local:RenameMethodViewModel">
+            <StackPanel Spacing="8">
+                <TextBox
+                    AutomationProperties.AutomationId="InsertText"
+                    Header="添加内容"
+                    Text="{x:Bind Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <NumberBox
+                    AutomationProperties.AutomationId="MethodPosition"
+                    Header="索引位置（0 起算）"
+                    Maximum="2147483647"
+                    Minimum="0"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind Position, Mode=TwoWay}" />
+                <CheckBox
+                    AutomationProperties.AutomationId="MethodFromRight"
+                    Content="从右侧定位"
+                    IsChecked="{x:Bind FromRight, Mode=TwoWay}" />
+                <TextBlock Text="位置 0：从左为开头，从右为末尾。" TextWrapping="Wrap" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MethodScope"
+                    Header="应用到"
+                    IsEnabled="{x:Bind CanChooseScope, Mode=OneWay}"
+                    SelectedIndex="{x:Bind ScopeIndex, Mode=TwoWay}">
+                    <x:String>文件名</x:String>
+                    <x:String>文件名＋扩展名</x:String>
+                </ComboBox>
+                <TextBlock
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ScopeHint, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="MethodTemplate2" x:DataType="local:RenameMethodViewModel">
+            <StackPanel Spacing="8">
+                <NumberBox
+                    AutomationProperties.AutomationId="MethodPosition"
+                    Header="索引位置（0 起算）"
+                    Maximum="2147483647"
+                    Minimum="0"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind Position, Mode=TwoWay}" />
+                <CheckBox
+                    AutomationProperties.AutomationId="MethodFromRight"
+                    Content="从右侧定位"
+                    IsChecked="{x:Bind FromRight, Mode=TwoWay}" />
+                <NumberBox
+                    AutomationProperties.AutomationId="DeleteLength"
+                    Header="删除长度"
+                    Maximum="2147483647"
+                    Minimum="1"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind Length, Mode=TwoWay}" />
+                <TextBlock Text="跳过索引指定的字符数，再向名称内部删除。位置和长度按完整字符计数。" TextWrapping="Wrap" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MethodScope"
+                    Header="应用到"
+                    IsEnabled="{x:Bind CanChooseScope, Mode=OneWay}"
+                    SelectedIndex="{x:Bind ScopeIndex, Mode=TwoWay}">
+                    <x:String>文件名</x:String>
+                    <x:String>文件名＋扩展名</x:String>
+                </ComboBox>
+                <TextBlock
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ScopeHint, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="MethodTemplate3" x:DataType="local:RenameMethodViewModel">
+            <StackPanel Spacing="8">
+                <TextBox
+                    AutomationProperties.AutomationId="RemoveCharacters"
+                    Header="要删除的字符集合"
+                    Text="{x:Bind Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Text="例如 ab：删除名称中的所有 a 和 b；删除连续文字请使用替换文字。" TextWrapping="Wrap" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MethodScope"
+                    Header="应用到"
+                    IsEnabled="{x:Bind CanChooseScope, Mode=OneWay}"
+                    SelectedIndex="{x:Bind ScopeIndex, Mode=TwoWay}">
+                    <x:String>文件名</x:String>
+                    <x:String>文件名＋扩展名</x:String>
+                </ComboBox>
+                <TextBlock
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ScopeHint, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="MethodTemplate4" x:DataType="local:RenameMethodViewModel">
+            <StackPanel Spacing="8">
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MethodCase"
+                    Header="转换方式"
+                    SelectedIndex="{x:Bind CaseIndex, Mode=TwoWay}">
+                    <x:String>全部小写</x:String>
+                    <x:String>全部大写</x:String>
+                    <x:String>单词首字母大写</x:String>
+                </ComboBox>
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MethodScope"
+                    Header="应用到"
+                    IsEnabled="{x:Bind CanChooseScope, Mode=OneWay}"
+                    SelectedIndex="{x:Bind ScopeIndex, Mode=TwoWay}">
+                    <x:String>文件名</x:String>
+                    <x:String>文件名＋扩展名</x:String>
+                </ComboBox>
+                <TextBlock
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ScopeHint, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="MethodTemplate5" x:DataType="local:RenameMethodViewModel">
+            <StackPanel Spacing="8">
+                <NumberBox
+                    AutomationProperties.AutomationId="NumberStart"
+                    Header="起始序号"
+                    Maximum="2147483647"
+                    Minimum="0"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind Start, Mode=TwoWay}" />
+                <NumberBox
+                    AutomationProperties.AutomationId="NumberStep"
+                    Header="步长"
+                    Maximum="2147483647"
+                    Minimum="0"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind Step, Mode=TwoWay}" />
+                <NumberBox
+                    AutomationProperties.AutomationId="NumberPadding"
+                    Header="补零位数"
+                    Maximum="32"
+                    Minimum="0"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind Padding, Mode=TwoWay}" />
+                <TextBox
+                    AutomationProperties.AutomationId="NumberSeparator"
+                    Header="序号分隔符"
+                    Text="{x:Bind Separator, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <NumberBox
+                    AutomationProperties.AutomationId="MethodPosition"
+                    Header="索引位置（0 起算）"
+                    Maximum="2147483647"
+                    Minimum="0"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{x:Bind Position, Mode=TwoWay}" />
+                <CheckBox
+                    AutomationProperties.AutomationId="MethodFromRight"
+                    Content="从右侧定位"
+                    IsChecked="{x:Bind FromRight, Mode=TwoWay}" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MethodScope"
+                    Header="应用到"
+                    IsEnabled="{x:Bind CanChooseScope, Mode=OneWay}"
+                    SelectedIndex="{x:Bind ScopeIndex, Mode=TwoWay}">
+                    <x:String>文件名</x:String>
+                    <x:String>文件名＋扩展名</x:String>
+                </ComboBox>
+                <TextBlock
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ScopeHint, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+        <local:RenameMethodTemplateSelector
+            x:Key="MethodSelector"
+            CaseTemplate="{StaticResource MethodTemplate4}"
+            DeleteTemplate="{StaticResource MethodTemplate2}"
+            InsertTemplate="{StaticResource MethodTemplate1}"
+            NumberingTemplate="{StaticResource MethodTemplate5}"
+            RemoveCharactersTemplate="{StaticResource MethodTemplate3}"
+            ReplaceTemplate="{StaticResource MethodTemplate0}" />
+        <DataTemplate x:Key="RenameRowTemplate" x:DataType="local:RenameRowViewModel">
+            <Grid
+                Width="{x:Bind Columns.TotalWidth, Mode=OneWay}"
+                Height="48"
+                Padding="12,4"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.OriginalWidth), Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.TargetWidth), Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.DirectoryWidth), Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(Columns.StatusWidth), Mode=OneWay}" />
+                </Grid.ColumnDefinitions>
+                <CheckBox
+                    Width="24"
+                    MinWidth="24"
+                    Padding="0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="RenameRowIncluded"
+                    AutomationProperties.Name="参与重命名"
+                    IsChecked="{x:Bind Included, Mode=TwoWay}" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    IsTextSelectionEnabled="True"
+                    Text="{x:Bind OriginalName, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    ToolTipService.ToolTip="{x:Bind OriginalName, Mode=OneWay}" />
+                <TextBlock
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    IsTextSelectionEnabled="True"
+                    Text="{x:Bind TargetName, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    ToolTipService.ToolTip="{x:Bind TargetName, Mode=OneWay}" />
+                <TextBlock
+                    Grid.Column="3"
+                    VerticalAlignment="Center"
+                    IsTextSelectionEnabled="True"
+                    Text="{x:Bind DirectoryPath, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    ToolTipService.ToolTip="{x:Bind DirectoryPath, Mode=OneWay}" />
+                <TextBlock
+                    Grid.Column="4"
+                    VerticalAlignment="Center"
+                    IsTextSelectionEnabled="True"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    ToolTipService.ToolTip="{x:Bind StatusDisplay, Mode=OneWay}">
+                    <Run Text="{x:Bind Status, Mode=OneWay}" />
+                    <Run Text=" " />
+                    <Run Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind Error, Mode=OneWay}" />
+                </TextBlock>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="PresetTemplate" x:DataType="core:RenamePreset">
+            <TextBlock Text="{x:Bind Name, Mode=OneTime}" />
+        </DataTemplate>
+    </Page.Resources>
+    <Grid Padding="16" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="批量重命名" />
+        <Grid Grid.Row="1" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="380" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ContentControl
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <CommandBar
+                        HorizontalAlignment="Stretch"
+                        DefaultLabelPosition="Collapsed"
+                        IsDynamicOverflowEnabled="False"
+                        OverflowButtonVisibility="Collapsed">
+                        <AppBarButton
+                            AutomationProperties.AutomationId="AddRenameMethod"
+                            AutomationProperties.Name="添加重命名方法"
+                            Icon="Add"
+                            Label="添加方法"
+                            Style="{StaticResource CompactMethodButtonStyle}"
+                            ToolTipService.ToolTip="添加方法">
+                            <AppBarButton.Flyout>
+                                <CommandBarFlyout
+                                    x:Name="RenameMethodFlyout"
+                                    AlwaysExpanded="True"
+                                    Placement="Bottom">
+                                    <CommandBarFlyout.SecondaryCommands>
+                                        <AppBarButton
+                                            AutomationProperties.AutomationId="AddReplaceMethod"
+                                            Click="AddMethod_Click"
+                                            Label="替换文字"
+                                            Tag="Replace" />
+                                        <AppBarButton
+                                            AutomationProperties.AutomationId="AddInsertMethod"
+                                            Click="AddMethod_Click"
+                                            Label="添加文字"
+                                            Tag="Insert" />
+                                        <AppBarButton
+                                            AutomationProperties.AutomationId="AddDeleteRangeMethod"
+                                            Click="AddMethod_Click"
+                                            Label="按位置删除"
+                                            Tag="DeleteRange" />
+                                        <AppBarButton
+                                            AutomationProperties.AutomationId="AddRemoveCharactersMethod"
+                                            Click="AddMethod_Click"
+                                            Label="删除指定字符"
+                                            Tag="RemoveCharacters" />
+                                        <AppBarButton
+                                            AutomationProperties.AutomationId="AddChangeCaseMethod"
+                                            Click="AddMethod_Click"
+                                            Label="大小写转换"
+                                            Tag="ChangeCase" />
+                                        <AppBarButton
+                                            AutomationProperties.AutomationId="AddNumberingMethod"
+                                            Click="AddMethod_Click"
+                                            Label="添加序号"
+                                            Tag="Numbering" />
+                                    </CommandBarFlyout.SecondaryCommands>
+                                </CommandBarFlyout>
+                            </AppBarButton.Flyout>
+                        </AppBarButton>
+                        <AppBarButton
+                            AutomationProperties.AutomationId="RemoveRenameMethod"
+                            AutomationProperties.Name="移除选中的方法"
+                            Command="{x:Bind ViewModel.RemoveMethodCommand}"
+                            Icon="Remove"
+                            Label="移除方法"
+                            Style="{StaticResource CompactMethodButtonStyle}"
+                            ToolTipService.ToolTip="移除方法" />
+                        <AppBarButton
+                            AutomationProperties.AutomationId="MoveRenameMethodUp"
+                            AutomationProperties.Name="上移选中的方法"
+                            Command="{x:Bind ViewModel.MoveUpCommand}"
+                            Label="上移方法"
+                            Style="{StaticResource CompactMethodButtonStyle}"
+                            ToolTipService.ToolTip="上移方法">
+                            <AppBarButton.Icon>
+                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE74A;" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+                        <AppBarButton
+                            AutomationProperties.AutomationId="MoveRenameMethodDown"
+                            AutomationProperties.Name="下移选中的方法"
+                            Command="{x:Bind ViewModel.MoveDownCommand}"
+                            Label="下移方法"
+                            Style="{StaticResource CompactMethodButtonStyle}"
+                            ToolTipService.ToolTip="下移方法">
+                            <AppBarButton.Icon>
+                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" Glyph="&#xE74B;" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+                        <AppBarButton
+                            AutomationProperties.AutomationId="LoadRenamePreset"
+                            AutomationProperties.Name="加载方案列表"
+                            Click="LoadPreset_Click"
+                            Icon="OpenFile"
+                            Label="加载方案列表"
+                            Style="{StaticResource CompactMethodButtonStyle}"
+                            ToolTipService.ToolTip="加载方案列表" />
+                        <AppBarButton
+                            AutomationProperties.AutomationId="SaveRenamePreset"
+                            AutomationProperties.Name="保存方案列表"
+                            Click="SavePreset_Click"
+                            Icon="Save"
+                            Label="保存方案列表"
+                            Style="{StaticResource CompactMethodButtonStyle}"
+                            ToolTipService.ToolTip="保存方案列表" />
+                    </CommandBar>
+                    <ComboBox
+                        x:Name="PresetCombo"
+                        Grid.Row="1"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="RenamePresetCombo"
+                        Header="方案列表预设"
+                        ItemTemplate="{StaticResource PresetTemplate}"
+                        ItemsSource="{x:Bind ViewModel.Presets, Mode=OneWay}"
+                        PlaceholderText="选择已保存的预设"
+                        SelectionChanged="Preset_SelectionChanged" />
+                    <TextBlock
+                        Grid.Row="2"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.PresetStatus, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                    <Grid Grid.Row="3">
+                        <ListView
+                            x:Name="MethodList"
+                            AllowDrop="True"
+                            AutomationProperties.AutomationId="RenameMethodList"
+                            CanDragItems="True"
+                            CanReorderItems="True"
+                            DragItemsCompleted="MethodList_DragItemsCompleted"
+                            DragItemsStarting="MethodList_DragItemsStarting"
+                            DragOver="MethodList_DragOver"
+                            ItemsSource="{x:Bind ViewModel.Methods, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedMethod, Mode=TwoWay}"
+                            SelectionMode="Single">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0,0,0,8" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:RenameMethodViewModel">
+                                    <Grid>
+                                        <Expander
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Stretch"
+                                            AutomationProperties.AutomationId="RenameMethodExpander"
+                                            AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+                                            Expanding="Method_Expanding"
+                                            IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}">
+                                            <Expander.Header>
+                                                <Grid
+                                                    Height="48"
+                                                    ColumnSpacing="8"
+                                                    ToolTipService.ToolTip="拖动标题区域可调整方法顺序">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="24" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="32" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox
+                                                        Width="24"
+                                                        MinWidth="24"
+                                                        Margin="0"
+                                                        Padding="0"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Center"
+                                                        AutomationProperties.AutomationId="RenameMethodEnabled"
+                                                        AutomationProperties.Name="启用此方法"
+                                                        IsChecked="{x:Bind Enabled, Mode=TwoWay}" />
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        VerticalAlignment="Center"
+                                                        Spacing="2">
+                                                        <TextBlock
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Text="{x:Bind Title, Mode=OneWay}"
+                                                            TextTrimming="CharacterEllipsis"
+                                                            TextWrapping="NoWrap"
+                                                            ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}" />
+                                                        <TextBlock
+                                                            FontWeight="SemiBold"
+                                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Text="{x:Bind Summary, Mode=OneWay}"
+                                                            TextTrimming="CharacterEllipsis"
+                                                            TextWrapping="NoWrap"
+                                                            ToolTipService.ToolTip="{x:Bind Summary, Mode=OneWay}" />
+                                                    </StackPanel>
+                                                    <AppBarButton
+                                                        Grid.Column="2"
+                                                        Width="32"
+                                                        Height="40"
+                                                        MinWidth="32"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        AutomationProperties.AutomationId="RemoveMethodInline"
+                                                        AutomationProperties.Name="删除此方法"
+                                                        Click="RemoveMethod_Click"
+                                                        Icon="Delete"
+                                                        Label="删除此方法"
+                                                        LabelPosition="Collapsed"
+                                                        ToolTipService.ToolTip="删除此方法" />
+                                                </Grid>
+                                            </Expander.Header>
+                                            <ContentControl
+                                                HorizontalContentAlignment="Stretch"
+                                                Content="{x:Bind Mode=OneWay}"
+                                                ContentTemplateSelector="{StaticResource MethodSelector}" />
+                                        </Expander>
+                                        <Border
+                                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                            BorderThickness="0.5"
+                                            CornerRadius="{StaticResource ControlCornerRadius}"
+                                            IsHitTestVisible="False"
+                                            Visibility="{x:Bind local:BatchRenamePage.SelectionVisibility(IsSelected), Mode=OneWay}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </ContentControl>
+            <TabView
+                Grid.Column="1"
+                VerticalAlignment="Stretch"
+                AutomationProperties.AutomationId="RenameTargetTabs"
+                CanDragTabs="False"
+                CanReorderTabs="False"
+                IsAddTabButtonVisible="False"
+                IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                SelectedIndex="{x:Bind ViewModel.ActiveTabIndex, Mode=TwoWay}">
+                <TabViewItem
+                    AutomationProperties.AutomationId="RenameFilesTab"
+                    Header="重命名文件"
+                    IsClosable="False">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <CommandBar HorizontalAlignment="Stretch" DefaultLabelPosition="Right">
+                            <AppBarButton
+                                AutomationProperties.AutomationId="AddRenameFiles"
+                                Click="AddItems_Click"
+                                Icon="Add"
+                                Label="添加文件" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="AddRenameContentsFiles"
+                                Click="AddContents_Click"
+                                Icon="OpenFile"
+                                Label="从文件夹添加" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="PreviewRenameFiles"
+                                Command="{x:Bind ViewModel.PreviewCommand}"
+                                Icon="Refresh"
+                                Label="生成预览" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="ExecuteRenameFiles"
+                                Command="{x:Bind ViewModel.ExecuteCommand}"
+                                Icon="Rename"
+                                Label="开始重命名" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="RemoveRenameFiles"
+                                Click="RemoveRows_Click"
+                                Icon="Remove"
+                                Label="移除所选" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="ClearRenameFiles"
+                                Click="ClearRows_Click"
+                                Icon="Delete"
+                                Label="清空清单" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="CheckFiles"
+                                Click="CheckAll_Click"
+                                Icon="SelectAll"
+                                Label="全部勾选" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="UncheckFiles"
+                                Click="UncheckAll_Click"
+                                Icon="ClearSelection"
+                                Label="取消全部勾选" />
+                        </CommandBar>
+                        <Grid Grid.Row="1" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="RenameSortFiles"
+                                AutomationProperties.Name="项目排序"
+                                SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="导入顺序" />
+                                <ComboBoxItem Content="名称升序" />
+                                <ComboBoxItem Content="名称降序" />
+                            </ComboBox>
+                            <CheckBox
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="RecursiveRenameFiles"
+                                Content="包含子目录"
+                                IsChecked="{x:Bind ViewModel.IncludeSubdirectories, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Grid.Row="2"
+                            AllowDrop="True"
+                            Background="Transparent"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource ControlCornerRadius}"
+                            DragOver="Items_DragOver"
+                            Drop="Items_Drop">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="40" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <ScrollViewer
+                                    x:Name="FileHeaderScroller"
+                                    Height="40"
+                                    HorizontalScrollBarVisibility="Hidden"
+                                    HorizontalScrollMode="Disabled"
+                                    IsTabStop="False"
+                                    VerticalScrollBarVisibility="Disabled"
+                                    VerticalScrollMode="Disabled">
+                                    <Grid
+                                        Width="{x:Bind ViewModel.FileColumns.TotalWidth, Mode=OneWay}"
+                                        Padding="12,0"
+                                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                        ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.OriginalWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.TargetWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.DirectoryWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FileColumns.StatusWidth), Mode=OneWay}" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Text="参与"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="原名称"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="1"
+                                            AutomationProperties.AutomationId="ResizeFileOriginalColumn"
+                                            AutomationProperties.Name="调整原名称列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Files:Original"
+                                            ToolTipService.ToolTip="拖动调整原名称列宽，也可使用左右方向键" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="新名称"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="2"
+                                            AutomationProperties.AutomationId="ResizeFileTargetColumn"
+                                            AutomationProperties.Name="调整新名称列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Files:Target"
+                                            ToolTipService.ToolTip="拖动调整新名称列宽，也可使用左右方向键" />
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="路径"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="3"
+                                            AutomationProperties.AutomationId="ResizeFileDirectoryColumn"
+                                            AutomationProperties.Name="调整路径列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Files:Directory"
+                                            ToolTipService.ToolTip="拖动调整路径列宽，也可使用左右方向键" />
+                                        <TextBlock
+                                            Grid.Column="4"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="状态／错误"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="4"
+                                            AutomationProperties.AutomationId="ResizeFileStatusColumn"
+                                            AutomationProperties.Name="调整状态／错误列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Files:Status"
+                                            ToolTipService.ToolTip="拖动调整状态／错误列宽，也可使用左右方向键" />
+                                    </Grid>
+                                </ScrollViewer>
+                                <ListView
+                                    x:Name="FileList"
+                                    Grid.Row="1"
+                                    Padding="0"
+                                    AutomationProperties.AutomationId="RenameFileList"
+                                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                    IsMultiSelectCheckBoxEnabled="False"
+                                    ItemContainerStyle="{StaticResource RenameResultItemStyle}"
+                                    ItemTemplate="{StaticResource RenameRowTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                    ScrollViewer.HorizontalScrollMode="Enabled"
+                                    SelectionMode="Extended" />
+                            </Grid>
+                        </Border>
+                        <TextBlock
+                            Grid.Row="3"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="拖入文件会直接添加；拖入文件夹会添加其中的文件。序号按当前排序和勾选项计算。"
+                            TextWrapping="Wrap" />
+                    </Grid>
+                </TabViewItem>
+                <TabViewItem
+                    AutomationProperties.AutomationId="RenameFoldersTab"
+                    Header="重命名文件夹"
+                    IsClosable="False">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <CommandBar HorizontalAlignment="Stretch" DefaultLabelPosition="Right">
+                            <AppBarButton
+                                AutomationProperties.AutomationId="AddRenameFolders"
+                                Click="AddItems_Click"
+                                Icon="Add"
+                                Label="添加文件夹" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="AddRenameContentsFolders"
+                                Click="AddContents_Click"
+                                Icon="OpenFile"
+                                Label="添加子文件夹" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="PreviewRenameFolders"
+                                Command="{x:Bind ViewModel.PreviewCommand}"
+                                Icon="Refresh"
+                                Label="生成预览" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="ExecuteRenameFolders"
+                                Command="{x:Bind ViewModel.ExecuteCommand}"
+                                Icon="Rename"
+                                Label="开始重命名" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="RemoveRenameFolders"
+                                Click="RemoveRows_Click"
+                                Icon="Remove"
+                                Label="移除所选" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="ClearRenameFolders"
+                                Click="ClearRows_Click"
+                                Icon="Delete"
+                                Label="清空清单" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="CheckFolders"
+                                Click="CheckAll_Click"
+                                Icon="SelectAll"
+                                Label="全部勾选" />
+                            <AppBarButton
+                                AutomationProperties.AutomationId="UncheckFolders"
+                                Click="UncheckAll_Click"
+                                Icon="ClearSelection"
+                                Label="取消全部勾选" />
+                        </CommandBar>
+                        <Grid Grid.Row="1" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="RenameSortFolders"
+                                AutomationProperties.Name="项目排序"
+                                SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="导入顺序" />
+                                <ComboBoxItem Content="名称升序" />
+                                <ComboBoxItem Content="名称降序" />
+                            </ComboBox>
+                            <CheckBox
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="RecursiveRenameFolders"
+                                Content="包含子目录"
+                                IsChecked="{x:Bind ViewModel.IncludeSubdirectories, Mode=TwoWay}" />
+                        </Grid>
+                        <Border
+                            Grid.Row="2"
+                            AllowDrop="True"
+                            Background="Transparent"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource ControlCornerRadius}"
+                            DragOver="Items_DragOver"
+                            Drop="Items_Drop">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="40" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <ScrollViewer
+                                    x:Name="FolderHeaderScroller"
+                                    Height="40"
+                                    HorizontalScrollBarVisibility="Hidden"
+                                    HorizontalScrollMode="Disabled"
+                                    IsTabStop="False"
+                                    VerticalScrollBarVisibility="Disabled"
+                                    VerticalScrollMode="Disabled">
+                                    <Grid
+                                        Width="{x:Bind ViewModel.FolderColumns.TotalWidth, Mode=OneWay}"
+                                        Padding="12,0"
+                                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                        ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.OriginalWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.TargetWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.DirectoryWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:BatchRenamePage.ColumnWidth(ViewModel.FolderColumns.StatusWidth), Mode=OneWay}" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Text="参与"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="原名称"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="1"
+                                            AutomationProperties.AutomationId="ResizeFolderOriginalColumn"
+                                            AutomationProperties.Name="调整原名称列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Folders:Original"
+                                            ToolTipService.ToolTip="拖动调整原名称列宽，也可使用左右方向键" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="新名称"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="2"
+                                            AutomationProperties.AutomationId="ResizeFolderTargetColumn"
+                                            AutomationProperties.Name="调整新名称列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Folders:Target"
+                                            ToolTipService.ToolTip="拖动调整新名称列宽，也可使用左右方向键" />
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="路径"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="3"
+                                            AutomationProperties.AutomationId="ResizeFolderDirectoryColumn"
+                                            AutomationProperties.Name="调整路径列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Folders:Directory"
+                                            ToolTipService.ToolTip="拖动调整路径列宽，也可使用左右方向键" />
+                                        <TextBlock
+                                            Grid.Column="4"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Text="状态／错误"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="NoWrap" />
+                                        <Thumb
+                                            Grid.Column="4"
+                                            AutomationProperties.AutomationId="ResizeFolderStatusColumn"
+                                            AutomationProperties.Name="调整状态／错误列宽"
+                                            DragCompleted="Column_DragCompleted"
+                                            DragDelta="Column_DragDelta"
+                                            KeyDown="Column_KeyDown"
+                                            PointerEntered="Column_PointerEntered"
+                                            PointerExited="Column_PointerExited"
+                                            Style="{StaticResource ColumnResizeThumbStyle}"
+                                            Tag="Folders:Status"
+                                            ToolTipService.ToolTip="拖动调整状态／错误列宽，也可使用左右方向键" />
+                                    </Grid>
+                                </ScrollViewer>
+                                <ListView
+                                    x:Name="FolderList"
+                                    Grid.Row="1"
+                                    Padding="0"
+                                    AutomationProperties.AutomationId="RenameFolderList"
+                                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                    IsMultiSelectCheckBoxEnabled="False"
+                                    ItemContainerStyle="{StaticResource RenameResultItemStyle}"
+                                    ItemTemplate="{StaticResource RenameRowTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                    ScrollViewer.HorizontalScrollMode="Enabled"
+                                    SelectionMode="Extended" />
+                            </Grid>
+                        </Border>
+                        <TextBlock
+                            Grid.Row="3"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="拖入文件夹会添加文件夹本身。序号按当前排序和勾选项计算。"
+                            TextWrapping="Wrap" />
+                    </Grid>
+                </TabViewItem>
+            </TabView>
+        </Grid>
+        <Grid Grid.Row="2" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="8">
+                <TextBlock Text="{x:Bind ViewModel.Summary, Mode=OneWay}" TextWrapping="Wrap" />
+                <ProgressBar Maximum="100" Value="{x:Bind ViewModel.Progress, Mode=OneWay}" />
+            </StackPanel>
+            <Button
+                Grid.Column="1"
+                AutomationProperties.AutomationId="CancelBatchRename"
+                Click="Cancel_Click"
+                Content="取消当前操作"
+                IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+        </Grid>
+        <InfoBar
+            Grid.Row="3"
+            AutomationProperties.AutomationId="BatchRenameStatus"
+            IsClosable="False"
+            IsOpen="True"
+            Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+            Severity="Informational" />
+    </Grid>
+</Page>

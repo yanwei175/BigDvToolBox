@@ -54,6 +54,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BigDvToolBox.Renaming.Core\BigDvToolBox.Renaming.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
   <ItemGroup>
