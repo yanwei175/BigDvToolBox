@@ -29,6 +29,7 @@ public sealed partial class BatchRenamePage : Page
     }
 
     public static Visibility SelectionVisibility(bool selected) => selected ? Visibility.Visible : Visibility.Collapsed;
+    public static bool HasPreset(object? preset) => preset is RenamePreset;
 
     private void MethodList_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
@@ -213,6 +214,26 @@ public sealed partial class BatchRenamePage : Page
     }
 
     private async void SavePreset_Click(object sender, RoutedEventArgs e) => await InteractAsync(async () => { await SaveCurrentPresetAsync(); });
+
+    private async void DeletePreset_Click(object sender, RoutedEventArgs e) => await InteractAsync(async () =>
+    {
+        if (PresetCombo.SelectedItem is not RenamePreset preset) return;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = "删除预设？",
+            Content = $"删除本地预设“{preset.Name}”？当前方法和参数将保留，可重新保存。",
+            PrimaryButtonText = "删除", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        _suppressPreset = true;
+        try
+        {
+            await ViewModel.DeletePresetAsync(preset);
+            SetPresetSelection(null);
+        }
+        finally { _suppressPreset = false; }
+        ViewModel.StatusText = $"已删除预设“{preset.Name}”，当前方法和参数已保留。";
+    });
 
     private async Task<bool> SaveCurrentPresetAsync()
     {

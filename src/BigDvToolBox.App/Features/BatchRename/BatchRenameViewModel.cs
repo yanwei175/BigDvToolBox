@@ -317,13 +317,32 @@ public partial class BatchRenameViewModel : ObservableObject
         try
         {
             Directory.CreateDirectory(_presetDirectory);
-            string id = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(preset.Name.ToUpperInvariant())));
-            string target = Path.Combine(_presetDirectory, id + ".json");
+            string target = GetPresetPath(preset.Name);
             string temporary = target + ".tmp";
             await File.WriteAllTextAsync(temporary, json); File.Move(temporary, target, true);
             UpsertPreset(preset); HasUnsavedChanges = false; return preset;
         }
         finally { IsBusy = false; }
+    }
+
+    public async Task DeletePresetAsync(RenamePreset preset)
+    {
+        if (!CanEdit) return;
+        IsBusy = true;
+        try
+        {
+            await Task.Run(() => File.Delete(GetPresetPath(preset.Name)));
+            var existing = Presets.FirstOrDefault(p => p.Name.Equals(preset.Name, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null) Presets.Remove(existing);
+            HasUnsavedChanges = true;
+        }
+        finally { IsBusy = false; }
+    }
+
+    private string GetPresetPath(string name)
+    {
+        string id = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(name.ToUpperInvariant())));
+        return Path.Combine(_presetDirectory, id + ".json");
     }
 
     public void UpsertPreset(RenamePreset preset)

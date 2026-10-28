@@ -15,7 +15,6 @@
             TargetType="AppBarButton">
             <Setter Property="Width" Value="40" />
             <Setter Property="MinWidth" Value="40" />
-            <Setter Property="Height" Value="40" />
             <Setter Property="MinHeight" Value="40" />
         </Style>
         <DataTemplate x:Key="MethodTemplate0" x:DataType="local:RenameMethodViewModel">
@@ -260,8 +259,12 @@
         </Style>
         <DataTemplate x:Key="RenameIncludedCell" x:DataType="local:RenameRowViewModel">
             <Grid Height="32" Margin="8,0">
-                <CheckBox Width="24" MinWidth="24" Padding="0"
-                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                <CheckBox
+                    Width="24"
+                    MinWidth="24"
+                    Padding="0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
                     AutomationProperties.AutomationId="RenameRowIncluded"
                     AutomationProperties.Name="参与重命名"
                     IsChecked="{x:Bind Included, Mode=TwoWay}" />
@@ -269,32 +272,34 @@
         </DataTemplate>
         <DataTemplate x:Key="RenameOriginalCell" x:DataType="local:RenameRowViewModel">
             <Grid Height="32" Margin="8,0">
-                <TextBlock Style="{StaticResource RenameCellTextStyle}"
+                <TextBlock
+                    Style="{StaticResource RenameCellTextStyle}"
                     Text="{x:Bind OriginalName, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind OriginalName, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="RenameTargetCell" x:DataType="local:RenameRowViewModel">
             <Grid Height="32" Margin="8,0">
-                <TextBlock Style="{StaticResource RenameCellTextStyle}"
+                <TextBlock
+                    Style="{StaticResource RenameCellTextStyle}"
                     Text="{x:Bind TargetName, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind TargetName, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="RenameDirectoryCell" x:DataType="local:RenameRowViewModel">
             <Grid Height="32" Margin="8,0">
-                <TextBlock Style="{StaticResource RenameCellTextStyle}"
+                <TextBlock
+                    Style="{StaticResource RenameCellTextStyle}"
                     Text="{x:Bind DirectoryPath, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind DirectoryPath, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="RenameStatusCell" x:DataType="local:RenameRowViewModel">
             <Grid Height="32" Margin="8,0">
-                <TextBlock Style="{StaticResource RenameCellTextStyle}"
-                    ToolTipService.ToolTip="{x:Bind StatusDisplay, Mode=OneWay}">
+                <TextBlock Style="{StaticResource RenameCellTextStyle}" ToolTipService.ToolTip="{x:Bind StatusDisplay, Mode=OneWay}">
                     <Run Text="{x:Bind Status, Mode=OneWay}" />
                     <Run Text=" " />
-                    <Run Text="{x:Bind Error, Mode=OneWay}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                    <Run Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind Error, Mode=OneWay}" />
                 </TextBlock>
             </Grid>
         </DataTemplate>
@@ -304,13 +309,11 @@
     </Page.Resources>
     <Grid Padding="16" RowSpacing="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="批量重命名" />
-        <Grid Grid.Row="1" ColumnSpacing="16">
+        <Grid ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="380" />
                 <ColumnDefinition Width="*" />
@@ -424,6 +427,15 @@
                             Label="保存方案列表"
                             Style="{StaticResource CompactMethodButtonStyle}"
                             ToolTipService.ToolTip="保存方案列表" />
+                        <AppBarButton
+                            AutomationProperties.AutomationId="DeleteRenamePreset"
+                            AutomationProperties.Name="删除选中的预设"
+                            Click="DeletePreset_Click"
+                            Icon="Delete"
+                            IsEnabled="{x:Bind local:BatchRenamePage.HasPreset(PresetCombo.SelectedItem), Mode=OneWay}"
+                            Label="删除预设"
+                            Style="{StaticResource CompactMethodButtonStyle}"
+                            ToolTipService.ToolTip="删除选中的预设" />
                     </CommandBar>
                     <ComboBox
                         x:Name="PresetCombo"
@@ -463,7 +475,26 @@
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:RenameMethodViewModel">
                                     <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <!-- 保持在 Expander 外，避免标题 ToggleButton 捕获拖拽起始指针。 -->
+                                        <Border
+                                            VerticalAlignment="Center"
+                                            Background="Transparent"
+                                            AutomationProperties.Name="拖动以调整方法顺序"
+                                            ToolTipService.ToolTip="按住此处拖动以调整方法顺序，也可使用上方的上移、下移按钮">
+                                            <FontIcon
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                FontSize="10"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Glyph="&#xE700;"
+                                                IsHitTestVisible="False" />
+                                        </Border>
                                         <Expander
+                                            Grid.Column="1"
                                             HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Stretch"
                                             AutomationProperties.AutomationId="RenameMethodExpander"
@@ -473,8 +504,7 @@
                                             <Expander.Header>
                                                 <Grid
                                                     Height="48"
-                                                    ColumnSpacing="8"
-                                                    ToolTipService.ToolTip="拖动标题区域可调整方法顺序">
+                                                    ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="24" />
                                                         <ColumnDefinition Width="*" />
@@ -503,7 +533,7 @@
                                                             ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}" />
                                                         <TextBlock
                                                             FontWeight="SemiBold"
-                                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                            Foreground="{ThemeResource TextSelectionHighlightColorThemeBrush}"
                                                             Style="{StaticResource CaptionTextBlockStyle}"
                                                             Text="{x:Bind Summary, Mode=OneWay}"
                                                             TextTrimming="CharacterEllipsis"
@@ -512,9 +542,7 @@
                                                     </StackPanel>
                                                     <AppBarButton
                                                         Grid.Column="2"
-                                                        Width="32"
-                                                        Height="40"
-                                                        MinWidth="32"
+                                                        Width="40"
                                                         HorizontalAlignment="Center"
                                                         VerticalAlignment="Center"
                                                         AutomationProperties.AutomationId="RemoveMethodInline"
@@ -532,6 +560,7 @@
                                                 ContentTemplateSelector="{StaticResource MethodSelector}" />
                                         </Expander>
                                         <Border
+                                            Grid.ColumnSpan="2"
                                             BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
                                             BorderThickness="0.5"
                                             CornerRadius="{StaticResource ControlCornerRadius}"
@@ -629,36 +658,62 @@
                         <tabular:TableView
                             x:Name="FileTable"
                             Grid.Row="2"
+                            AllowDrop="True"
                             AutomationProperties.AutomationId="RenameFileTable"
                             AutomationProperties.Name="文件重命名预览"
-                            AllowDrop="True"
+                            CanUserResizeColumns="True"
+                            CanUserSortColumns="False"
+                            Density="Comfortable"
                             DragOver="Items_DragOver"
                             Drop="Items_Drop"
-                            IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
-                            ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
-                            HeadersVisibility="Column"
                             GridLinesVisibility="Horizontal"
-                            Density="Comfortable"
+                            HeadersVisibility="Column"
+                            IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                             IsReadOnly="True"
-                            SelectionMode="Single"
-                            CanUserResizeColumns="True"
-                            CanUserSortColumns="False">
+                            ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
+                            SelectionMode="Single">
                             <tabular:TableView.Columns>
-                                <tabular:TableViewTemplateColumn Header="参与" Width="64" MinWidth="64" MaxWidth="64"
-                                    CanResize="False" FrozenEdge="Leading" CellTemplate="{StaticResource RenameIncludedCell}" />
-                                <tabular:TableViewTemplateColumn Header="原名称" Width="160" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameOriginalCell}" />
-                                <tabular:TableViewTemplateColumn Header="新名称" Width="180" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameTargetCell}" />
-                                <tabular:TableViewTemplateColumn Header="路径" Width="220" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameDirectoryCell}" />
-                                <tabular:TableViewTemplateColumn Header="状态／错误" Width="240" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameStatusCell}" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="64"
+                                    MinWidth="64"
+                                    MaxWidth="64"
+                                    CanResize="False"
+                                    CellTemplate="{StaticResource RenameIncludedCell}"
+                                    FrozenEdge="Leading"
+                                    Header="参与" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="160"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameOriginalCell}"
+                                    Header="原名称" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="180"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameTargetCell}"
+                                    Header="新名称" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="220"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameDirectoryCell}"
+                                    Header="路径" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="240"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameStatusCell}"
+                                    Header="状态／错误" />
                             </tabular:TableView.Columns>
                             <tabular:TableView.EmptyTemplate>
                                 <DataTemplate>
-                                    <TextBlock Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                        Text="拖入文件或文件夹，或使用上方按钮添加。" TextWrapping="Wrap" />
+                                    <TextBlock
+                                        Margin="24"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Text="拖入文件或文件夹，或使用上方按钮添加。"
+                                        TextWrapping="Wrap" />
                                 </DataTemplate>
                             </tabular:TableView.EmptyTemplate>
                         </tabular:TableView>
@@ -745,36 +800,62 @@
                         <tabular:TableView
                             x:Name="FolderTable"
                             Grid.Row="2"
+                            AllowDrop="True"
                             AutomationProperties.AutomationId="RenameFolderTable"
                             AutomationProperties.Name="文件夹重命名预览"
-                            AllowDrop="True"
+                            CanUserResizeColumns="True"
+                            CanUserSortColumns="False"
+                            Density="Comfortable"
                             DragOver="Items_DragOver"
                             Drop="Items_Drop"
-                            IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
-                            ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}"
-                            HeadersVisibility="Column"
                             GridLinesVisibility="Horizontal"
-                            Density="Comfortable"
+                            HeadersVisibility="Column"
+                            IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                             IsReadOnly="True"
-                            SelectionMode="Single"
-                            CanUserResizeColumns="True"
-                            CanUserSortColumns="False">
+                            ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}"
+                            SelectionMode="Single">
                             <tabular:TableView.Columns>
-                                <tabular:TableViewTemplateColumn Header="参与" Width="64" MinWidth="64" MaxWidth="64"
-                                    CanResize="False" FrozenEdge="Leading" CellTemplate="{StaticResource RenameIncludedCell}" />
-                                <tabular:TableViewTemplateColumn Header="原名称" Width="160" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameOriginalCell}" />
-                                <tabular:TableViewTemplateColumn Header="新名称" Width="180" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameTargetCell}" />
-                                <tabular:TableViewTemplateColumn Header="路径" Width="220" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameDirectoryCell}" />
-                                <tabular:TableViewTemplateColumn Header="状态／错误" Width="240" MinWidth="80" MaxWidth="1200"
-                                    CellTemplate="{StaticResource RenameStatusCell}" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="64"
+                                    MinWidth="64"
+                                    MaxWidth="64"
+                                    CanResize="False"
+                                    CellTemplate="{StaticResource RenameIncludedCell}"
+                                    FrozenEdge="Leading"
+                                    Header="参与" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="160"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameOriginalCell}"
+                                    Header="原名称" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="180"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameTargetCell}"
+                                    Header="新名称" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="220"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameDirectoryCell}"
+                                    Header="路径" />
+                                <tabular:TableViewTemplateColumn
+                                    Width="240"
+                                    MinWidth="80"
+                                    MaxWidth="1200"
+                                    CellTemplate="{StaticResource RenameStatusCell}"
+                                    Header="状态／错误" />
                             </tabular:TableView.Columns>
                             <tabular:TableView.EmptyTemplate>
                                 <DataTemplate>
-                                    <TextBlock Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                        Text="拖入文件夹，或使用上方按钮添加。" TextWrapping="Wrap" />
+                                    <TextBlock
+                                        Margin="24"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Text="拖入文件夹，或使用上方按钮添加。"
+                                        TextWrapping="Wrap" />
                                 </DataTemplate>
                             </tabular:TableView.EmptyTemplate>
                         </tabular:TableView>
@@ -787,7 +868,7 @@
                 </TabViewItem>
             </TabView>
         </Grid>
-        <Grid Grid.Row="2" ColumnSpacing="12">
+        <Grid Grid.Row="1" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -804,7 +885,7 @@
                 IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
         </Grid>
         <InfoBar
-            Grid.Row="3"
+            Grid.Row="2"
             AutomationProperties.AutomationId="BatchRenameStatus"
             IsClosable="False"
             IsOpen="True"

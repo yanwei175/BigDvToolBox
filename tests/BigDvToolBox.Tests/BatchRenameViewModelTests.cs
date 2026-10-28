@@ -154,6 +154,37 @@ public sealed class BatchRenameViewModelTests
         finally { vm.Cancel(); other.Cancel(); }
     }
 
+    [TestMethod]
+    public async Task DeletePreset_RemovesSavedPresetAndRetainsCurrentEdits()
+    {
+        using var disk = new TestDirectory();
+        string directory = Path.Combine(disk.Path, "presets");
+        var vm = new BatchRenameViewModel(directory);
+        var reloaded = new BatchRenameViewModel(directory);
+        try
+        {
+            vm.AddMethod(RenameMethod.Insert); vm.Methods[0].Text = "saved";
+            var removed = await vm.SavePresetAsync("删除测试");
+            await vm.SavePresetAsync("保留测试");
+            vm.Methods[0].Text = "current edits";
+            var method = vm.Methods[0];
+
+            await vm.DeletePresetAsync(removed);
+
+            Assert.AreSame(method, vm.Methods[0]);
+            Assert.AreEqual("current edits", method.Text);
+            Assert.IsTrue(vm.HasUnsavedChanges); Assert.IsTrue(vm.CanEdit);
+            Assert.HasCount(1, vm.Presets);
+            await reloaded.LoadPresetsAsync();
+            Assert.HasCount(1, reloaded.Presets);
+            Assert.AreEqual("保留测试", reloaded.Presets[0].Name);
+
+            await vm.SavePresetAsync(removed.Name);
+            Assert.HasCount(2, vm.Presets); Assert.IsFalse(vm.HasUnsavedChanges);
+        }
+        finally { vm.Cancel(); reloaded.Cancel(); }
+    }
+
     private sealed class TestDirectory : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "BigDvRenameVmTests", Guid.NewGuid().ToString("N"));
