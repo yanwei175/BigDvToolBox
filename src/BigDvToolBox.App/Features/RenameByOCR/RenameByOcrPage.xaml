@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:BigDvToolBox_App.Features.RenameByOCR"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Loaded="Page_Loaded"
     mc:Ignorable="d">
 
     <Grid Padding="16" RowSpacing="12">
@@ -30,9 +31,9 @@
 
                     <TextBox
                         AutomationProperties.AutomationId="SelectedOcrFolder"
-                        Header="当前文件夹"
+                        Header="当前来源"
                         IsReadOnly="True"
-                        Text="{x:Bind ViewModel.FolderPath, Mode=OneWay}"
+                        Text="{x:Bind ViewModel.InputSourceDisplay, Mode=OneWay}"
                         TextWrapping="Wrap" />
 
                     <Grid ColumnSpacing="8">
@@ -69,6 +70,107 @@
                         SpinButtonPlacementMode="Compact"
                         ValueChanged="PdfDpi_ValueChanged"
                         Value="{x:Bind ViewModel.PdfDpi, Mode=TwoWay}" />
+
+                    <Expander
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="OcrSettingsExpander"
+                        IsEnabled="{x:Bind ViewModel.CanConfigure, Mode=OneWay}"
+                        IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Spacing="4">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="OCR 设置" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind ViewModel.LanguageSummary, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Spacing="12">
+                            <TextBox
+                                AutomationProperties.AutomationId="OcrModelDirectory"
+                                Header="模型目录"
+                                IsReadOnly="True"
+                                Text="{x:Bind ViewModel.ModelDirectory, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button
+                                    AutomationProperties.AutomationId="SelectOcrModelDirectory"
+                                    Click="SelectModelDirectory_Click"
+                                    Content="选择目录" />
+                                <Button
+                                    AutomationProperties.AutomationId="DefaultOcrModelDirectory"
+                                    Click="DefaultModelDirectory_Click"
+                                    Content="使用默认目录" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button
+                                    AutomationProperties.AutomationId="OpenOcrModelDirectory"
+                                    Click="OpenModelDirectory_Click"
+                                    Content="打开目录" />
+                                <Button
+                                    AutomationProperties.AutomationId="RefreshOcrLanguages"
+                                    Click="RefreshLanguages_Click"
+                                    Content="刷新语言" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="识别语言（可多选）" />
+                            <ListView
+                                MaxHeight="200"
+                                AutomationProperties.AutomationId="OcrLanguages"
+                                ItemsSource="{x:Bind ViewModel.Languages, Mode=OneWay}"
+                                SelectionMode="None">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="local:OcrLanguageOption">
+                                        <CheckBox
+                                            AutomationProperties.AutomationId="OcrLanguageSelection"
+                                            AutomationProperties.Name="{x:Bind DisplayName, Mode=OneWay}"
+                                            IsChecked="{x:Bind IsSelected, Mode=TwoWay}">
+                                            <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                            <ComboBox
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="OcrLayout"
+                                Header="重命名识别布局"
+                                SelectedIndex="{x:Bind ViewModel.LayoutIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="跟随任务（默认）" />
+                                <ComboBoxItem Content="自动" />
+                                <ComboBoxItem Content="单行" />
+                                <ComboBoxItem Content="单词" />
+                            </ComboBox>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="OcrDisableDictionaries"
+                                Header="关闭词典纠正（适用于编号）"
+                                IsOn="{x:Bind ViewModel.DisableDictionaries, Mode=TwoWay}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="配置自动保存，下次识别生效。CSV 始终使用整页自动布局。"
+                                TextWrapping="Wrap" />
+                            <TextBlock Text="从官方仓库下载 .traineddata 文件，放入当前目录后刷新并勾选语言。" TextWrapping="Wrap" />
+                            <StackPanel Spacing="4">
+                                <HyperlinkButton
+                                    AutomationProperties.AutomationId="OcrBestModelsLink"
+                                    Content="best（准确率优先）"
+                                    NavigateUri="https://github.com/tesseract-ocr/tessdata_best" />
+                                <HyperlinkButton
+                                    AutomationProperties.AutomationId="OcrFastModelsLink"
+                                    Content="fast（速度优先）"
+                                    NavigateUri="https://github.com/tesseract-ocr/tessdata_fast" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+                    <TextBlock
+                        AutomationProperties.AutomationId="OcrConfigurationError"
+                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                        Text="{x:Bind ViewModel.OcrConfigurationError, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        AutomationProperties.AutomationId="OcrSettingsSaveError"
+                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                        Text="{x:Bind ViewModel.SettingsSaveError, Mode=OneWay}"
+                        TextWrapping="Wrap" />
 
                     <RadioButtons
                         AutomationProperties.AutomationId="OcrRenameMode"
@@ -220,7 +322,7 @@
                                 Margin="12,8"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 IsHitTestVisible="False"
-                                Text="将一个文件夹拖到此处，加载其中的 PDF 或图片；也可以点击“选择文件夹”。"
+                                Text="将一个文件夹拖到此处，或点击“选择文件夹”；也可通过右上角文件池加入 PDF 或图片。"
                                 TextWrapping="Wrap" />
                             <ScrollViewer
                                 x:Name="PreviewScrollViewer"

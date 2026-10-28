@@ -1,0 +1,70 @@
+<UserControl
+    x:Class="BigDvToolBox_App.Features.FilePool.FilePoolPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BigDvToolBox_App.Features.FilePool">
+    <Grid Padding="16" RowSpacing="8" AllowDrop="True" DragOver="Panel_DragOver" Drop="Panel_Drop">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="文件池" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Click="Close_Click" AutomationProperties.AutomationId="CloseFilePool"
+                AutomationProperties.Name="关闭文件池" ToolTipService.ToolTip="关闭文件池">
+                <SymbolIcon Symbol="Cancel" />
+            </Button>
+        </Grid>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+            <Button Click="AddFiles_Click" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" ToolTipService.ToolTip="添加文件"
+                AutomationProperties.Name="添加文件" AutomationProperties.AutomationId="PoolAddFiles"><SymbolIcon Symbol="Add" /></Button>
+            <Button Click="AddFolder_Click" IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" ToolTipService.ToolTip="添加文件夹中的文件"
+                AutomationProperties.Name="添加文件夹中的文件" AutomationProperties.AutomationId="PoolAddFolder"><SymbolIcon Symbol="OpenFile" /></Button>
+            <Button Click="Remove_Click" IsEnabled="{x:Bind ViewModel.CanRemove, Mode=OneWay}" ToolTipService.ToolTip="移出选中项（不删除文件）"
+                AutomationProperties.Name="移出选中项" AutomationProperties.AutomationId="PoolRemove"><SymbolIcon Symbol="Remove" /></Button>
+            <Button Click="Clear_Click" IsEnabled="{x:Bind ViewModel.CanClear, Mode=OneWay}" ToolTipService.ToolTip="清空文件池（不删除文件）"
+                AutomationProperties.Name="清空文件池" AutomationProperties.AutomationId="PoolClear"><SymbolIcon Symbol="Clear" /></Button>
+            <Button Click="Cancel_Click" IsEnabled="{x:Bind ViewModel.IsImporting, Mode=OneWay}" ToolTipService.ToolTip="取消导入"
+                AutomationProperties.Name="取消导入" AutomationProperties.AutomationId="PoolCancel"><SymbolIcon Symbol="Stop" /></Button>
+        </StackPanel>
+        <TextBox x:Name="SearchBox" Grid.Row="2" Header="搜索文件名" Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            AutomationProperties.AutomationId="PoolSearch" />
+        <StackPanel Grid.Row="3" Spacing="4">
+            <ComboBox Header="文件类型" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind ViewModel.TypeIndex, Mode=TwoWay}" AutomationProperties.AutomationId="PoolType">
+                <ComboBoxItem Content="全部" /><ComboBoxItem Content="PDF" /><ComboBoxItem Content="图片" /><ComboBoxItem Content="其他" />
+            </ComboBox>
+            <CheckBox Content="仅显示当前功能可用文件" IsChecked="{x:Bind ViewModel.OnlyCompatible, Mode=TwoWay}" AutomationProperties.AutomationId="PoolCompatible" />
+            <CheckBox Content="导入时包含子文件夹" IsChecked="{x:Bind ViewModel.IncludeSubdirectories, Mode=TwoWay}"
+                IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" AutomationProperties.AutomationId="PoolRecursive" />
+        </StackPanel>
+        <TextBlock Grid.Row="4" Text="{x:Bind ViewModel.Summary, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+        <ListView x:Name="FilesList" Grid.Row="5" ItemsSource="{x:Bind ViewModel.VisibleFiles, Mode=OneWay}" SelectionMode="Multiple"
+            SelectionChanged="Files_SelectionChanged" AutomationProperties.AutomationId="PoolFiles" AutomationProperties.Name="公共文件池">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="MinHeight" Value="56" /></Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:FilePoolEntry">
+                    <StackPanel Height="48" VerticalAlignment="Center" Spacing="4" ToolTipService.ToolTip="{x:Bind Path, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind Name, Mode=OneWay}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{x:Bind StateText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+        <TextBlock Grid.Row="6" Text="{x:Bind ViewModel.Message, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+        <StackPanel Grid.Row="7" Spacing="8">
+            <TextBlock Text="{x:Bind ViewModel.TargetHint, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+            <Button Content="{x:Bind ViewModel.ImportLabel, Mode=OneWay}" IsEnabled="{x:Bind ViewModel.CanSend, Mode=OneWay}"
+                Click="Send_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="PoolSend" />
+        </StackPanel>
+    </Grid>
+</UserControl>

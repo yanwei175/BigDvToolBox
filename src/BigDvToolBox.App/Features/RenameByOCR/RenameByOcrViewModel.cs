@@ -1,3 +1,4 @@
+using BigDvToolBox_App.Features.FilePool;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -9,7 +10,7 @@ namespace BigDvToolBox_App.Features.RenameByOCR;
 internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 {
     private readonly IDocumentRenderer _renderer;
-    private readonly Func<IOcrService>? _ocrServiceFactory;
+    private readonly Func<OcrEngineOptions, IOcrService>? _ocrServiceFactory;
     private readonly HashSet<RenamePreviewItem> _observedResults = [];
     private CancellationTokenSource? _operationCancellation;
     private RenderedDocument? _currentDocument;
@@ -21,10 +22,14 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 
     internal RenameByOcrViewModel(
         IDocumentRenderer renderer,
-        Func<IOcrService>? ocrServiceFactory = null)
+        Func<OcrEngineOptions, IOcrService>? ocrServiceFactory = null,
+        IOcrSettingsStore? settingsStore = null,
+        OcrModelDirectoryService? modelDirectoryService = null)
     {
         _renderer = renderer;
         _ocrServiceFactory = ocrServiceFactory;
+        _settingsStore = settingsStore ?? new JsonOcrSettingsStore();
+        _modelDirectoryService = modelDirectoryService ?? new OcrModelDirectoryService();
         Results.CollectionChanged += Results_CollectionChanged;
         IsSupported = RuntimeInformation.ProcessArchitecture is Architecture.X64 or Architecture.X86;
     }
@@ -35,20 +40,20 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
     public bool IsUnsupported => !IsSupported;
     public bool HasFiles => Files.Count > 0;
     public bool HasResults => Results.Count > 0;
-    public bool CanStart => IsSupported && HasFiles && !IsBusy &&
+    public bool CanStart => IsSupported && HasFiles && !IsBusy && !IsSettingsBusy && IsOcrReady &&
         (ModeIndex == (int)RenameMode.AnchorText
             ? !string.IsNullOrWhiteSpace(AnchorText)
             : SelectedRegion.IsValid);
-    public bool CanApply => IsSupported && HasResults && !IsBusy &&
+    public bool CanApply => IsSupported && HasResults && !IsBusy && !IsSettingsBusy &&
         Results.Any(item => item.CanRename);
-    public bool CanExport => IsSupported && HasFiles && !IsBusy;
-    public bool CanConfigure => IsSupported && !IsBusy;
-    public bool CanNavigate => HasFiles && !IsBusy;
+    public bool CanExport => IsSupported && HasFiles && !IsBusy && !IsSettingsBusy && IsOcrReady;
+    public bool CanConfigure => IsSupported && !IsBusy && !IsSettingsBusy;
+    public bool CanNavigate => HasFiles && !IsBusy && !IsSettingsBusy;
     public bool CanCancel => IsBusy;
     public bool IsProgressIndeterminate => IsBusy && ProgressMaximum <= 0;
     public string CurrentFileDisplay => HasFiles
         ? $"{SelectedIndex + 1}/{Files.Count} · {Path.GetFileName(CurrentFilePath)}"
-        : "尚未选择文件夹";
+        : "尚未加载文件";
     public string CurrentFilePath => HasFiles && SelectedIndex >= 0 && SelectedIndex < Files.Count
         ? Files[SelectedIndex]
         : string.Empty;
@@ -143,6 +148,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
             foreach (string file in files)
             {
                 Files.Add(file);
+                _filePool?.Track(file);
             }
 
             FolderPath = folderPath;
@@ -190,6 +196,8 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
         }
 
         string path = CurrentFilePath;
+        if (!ReservePoolFiles([new(path)], out var previewLease)) return null;
+        using var reservedPreview = previewLease;
         int pdfDpi = PdfDpi;
         try
         {
@@ -230,11 +238,15 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (!ReservePoolFiles(Files.Select(path => new FileAccessPath(path)), out var poolLease)) return;
+        using var reservedFiles = poolLease;
         CancellationToken token = BeginOperation("正在识别文件…");
         var recognized = new List<(string Path, string Text, string Error)>(Files.Count);
         try
         {
-            using IOcrService ocr = await Task.Run(CreateOcrService, token);
+            OcrEngineOptions options = CreateOptionsSnapshot();
+            OcrLayout layout = _settings.Layout;
+            using IOcrService ocr = await Task.Run(() => CreateOcrService(options), token);
             int modeIndex = ModeIndex;
             int pdfDpi = PdfDpi;
             string anchorText = AnchorText;
@@ -253,10 +265,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
                     byte[] input = modeIndex == (int)RenameMode.FixedRegion
                         ? await _renderer.CropAsync(document, selectedRegion, token)
                         : document.PngBytes;
-                    OcrSegmentationMode segmentationMode =
-                        modeIndex == (int)RenameMode.FixedRegion
-                            ? OcrSegmentationMode.SingleWord
-                            : OcrSegmentationMode.Auto;
+                    OcrSegmentationMode segmentationMode = ResolveLayout(layout, (RenameMode)modeIndex);
                     string fullText =
                         await ocr.RecognizeAsync(input, token, segmentationMode);
                     if (string.IsNullOrWhiteSpace(fullText))
@@ -315,6 +324,9 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
             return new BatchSummary(0, Results.Count, 0);
         }
 
+        if (!ReservePoolFiles(Results.SelectMany(item => new[] { new FileAccessPath(item.OriginalPath),
+            new FileAccessPath(string.IsNullOrEmpty(item.TargetPath) ? item.OriginalPath : item.TargetPath) }), out var poolLease)) return new BatchSummary(0, Results.Count, 0);
+        using var reservedFiles = poolLease;
         CancellationToken token = BeginOperation("正在重命名文件…");
         try
         {
@@ -322,7 +334,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
             string summaryMessage =
                 $"重命名完成：成功 {summary.Succeeded}，跳过 {summary.Skipped}，失败 {summary.Failed}。";
             HasError = summary.Failed > 0;
-            await ReloadFolderAfterRenameAsync();
+
             Status = summaryMessage;
             return summary;
         }
@@ -333,21 +345,28 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            EndOperation();
+            string finalStatus = Status;
+            bool finalError = HasError;
+            reservedFiles?.Dispose();
+            try { await ReloadFolderAfterRenameAsync(); }
+            finally { EndOperation(); Status = finalStatus; HasError = finalError; }
         }
     }
 
     public async Task ExportCsvAsync(string destinationPath)
     {
-        if (!IsSupported || !HasFiles || IsBusy)
+        if (!CanExport)
         {
             return;
         }
 
+        if (!ReservePoolFiles(Files.Select(path => new FileAccessPath(path)).Append(new(destinationPath)), out var poolLease)) return;
+        using var reservedFiles = poolLease;
         CancellationToken token = BeginOperation("正在生成 OCR CSV…");
         try
         {
-            using IOcrService ocr = await Task.Run(CreateOcrService, token);
+            OcrEngineOptions options = CreateOptionsSnapshot();
+            using IOcrService ocr = await Task.Run(() => CreateOcrService(options), token);
             int pdfDpi = PdfDpi;
             var rows = new List<(string FileName, string Text)>();
             ProgressMaximum = Files.Count;
@@ -423,8 +442,11 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        ConnectFilePool(null);
         Cancel();
         _operationCancellation?.Dispose();
+        foreach (OcrLanguageOption option in Languages)
+            option.PropertyChanged -= Language_PropertyChanged;
         Results.CollectionChanged -= Results_CollectionChanged;
         foreach (RenamePreviewItem item in _observedResults)
         {
@@ -502,11 +524,11 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanApply));
     }
 
-    private IOcrService CreateOcrService()
+    private IOcrService CreateOcrService(OcrEngineOptions options)
     {
         if (_ocrServiceFactory is not null)
         {
-            return _ocrServiceFactory();
+            return _ocrServiceFactory(options);
         }
 
         if (!IsSupported)
@@ -514,12 +536,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
             throw new PlatformNotSupportedException("Rename By OCR 仅支持 x86 和 x64。");
         }
 
-        string tessdataPath = Path.Combine(
-            AppContext.BaseDirectory,
-            "Features",
-            "RenameByOCR",
-            "tessdata");
-        return new TesseractOcrService(tessdataPath);
+        return new TesseractOcrService(options);
     }
 
     private Task<RenderedDocument> GetOrRenderDocumentAsync(
@@ -539,13 +556,11 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 
     private async Task ReloadFolderAfterRenameAsync()
     {
-        IReadOnlyList<string> files = RenameFileService.EnumerateSupportedFiles(FolderPath);
-        Files.Clear();
-        foreach (string file in files)
-        {
-            Files.Add(file);
-        }
-
+        var changes = Results.Where(item => item.Status == "已重命名" && Files.Contains(item.OriginalPath, StringComparer.OrdinalIgnoreCase))
+            .Select(item => new PathChange(item.OriginalPath, item.TargetPath)).ToArray();
+        for (int i = 0; i < Files.Count; i++) Files[i] = FilePoolService.MapPath(Files[i], changes);
+        _filePool?.PublishRenames(changes);
+        _currentDocument = null;
         SelectedIndex = Math.Clamp(SelectedIndex, 0, Math.Max(0, Files.Count - 1));
         NotifyCollectionStateChanged();
         await LoadCurrentPreviewAsync();
@@ -553,6 +568,7 @@ internal partial class RenameByOcrViewModel : ObservableObject, IDisposable
 
     private void NotifyCollectionStateChanged()
     {
+        OnPropertyChanged(nameof(InputSourceDisplay));
         OnPropertyChanged(nameof(HasFiles));
         OnPropertyChanged(nameof(HasResults));
         OnPropertyChanged(nameof(CanStart));

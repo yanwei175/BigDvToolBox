@@ -1,3 +1,4 @@
+using BigDvToolBox_App.Features.FilePool;
 using BigDvToolBox.App.Pages;
 using BigDvToolBox_App.Features.ImageProcessing;
 using BigDvToolBox_App.Features.PdfLayOut;
@@ -95,6 +96,7 @@ namespace BigDvToolBox_App
         public MainWindow()
         {
             InitializeComponent();
+            InitializeFilePool();
 
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
@@ -199,7 +201,7 @@ namespace BigDvToolBox_App
                 ? new HomePageNavigationContext(
                     ToolPages.Where(page => page.ShowOnHome).ToArray(),
                     OpenOrActivateTool)
-                : null;
+                : new FilePoolNavigationContext(_filePool);
 
             if (!frame.Navigate(definition.PageType, navigationParameter))
             {
@@ -230,6 +232,8 @@ namespace BigDvToolBox_App
                 return;
             }
 
+            UpdateFilePoolTarget();
+
             // 标签切换时反向同步左侧导航；保护标志避免两个 SelectionChanged 相互触发。
             _isSynchronizingSelection = true;
             try
@@ -257,6 +261,14 @@ namespace BigDvToolBox_App
             {
                 return;
             }
+
+            var poolTarget = (tab.Content as Frame)?.Content is IFilePoolTarget participant ? participant.PoolTarget : null;
+            if (poolTarget?.IsBusy == true)
+            {
+                poolTarget.Report("请先取消并等待当前操作结束，再关闭页面。");
+                return;
+            }
+            poolTarget?.Dispose();
 
             int closedIndex = sender.TabItems.IndexOf(tab);
             if (closedIndex < 0) return;

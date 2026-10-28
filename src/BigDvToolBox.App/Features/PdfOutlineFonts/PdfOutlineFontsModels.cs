@@ -32,7 +32,10 @@ internal sealed partial class PdfFileItem : ObservableObject
         FilePath = filePath;
     }
 
-    public string FilePath { get; }
+    internal Guid? PoolId { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FileName))]
+    public partial string FilePath { get; set; } = string.Empty;
 
     public string FileName => Path.GetFileName(FilePath);
 

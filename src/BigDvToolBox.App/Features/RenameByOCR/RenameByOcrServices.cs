@@ -159,10 +159,39 @@ internal sealed class TesseractOcrService : IOcrService
     private readonly TesseractEngine _engine;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public TesseractOcrService(string tessdataPath)
+    public TesseractOcrService(OcrEngineOptions options)
     {
-        _engine = new TesseractEngine(tessdataPath, "eng+ces+pol+rus", EngineMode.Default);
+        var initialOptions = new Dictionary<string, object>
+        {
+            ["load_system_dawg"] = !options.DisableDictionaries,
+            ["load_freq_dawg"] = !options.DisableDictionaries,
+        };
+        // Tesseract can succeed with only SOME of the requested languages loaded.
+        // Validate each model separately so a corrupt secondary model is not silently ignored.
+        string[] languages = options.Languages.Split('+', StringSplitOptions.RemoveEmptyEntries);
+        if (languages.Length == 0 || languages.Any(code => !OcrModelDirectoryService.IsLanguageCode(code)))
+            throw new ArgumentException("请选择有效的 OCR 语言。", nameof(options));
+        if (languages.Length > 1)
+        {
+            foreach (string language in languages)
+            {
+                try
+                {
+                    using var validation = new TesseractEngine(options.ModelDirectory, language,
+                        EngineMode.LstmOnly, Array.Empty<string>(), initialOptions, false);
+                }
+                catch (Exception exception)
+                {
+                    throw new InvalidDataException($"无法加载语言模型 {language}：{exception.Message}", exception);
+                }
+            }
+        }
+        _engine = new TesseractEngine(options.ModelDirectory, options.Languages,
+            EngineMode.LstmOnly, Array.Empty<string>(), initialOptions, false);
     }
+
+    internal bool? GetBooleanVariable(string name) =>
+        _engine.TryGetBoolVariable(name, out bool value) ? value : null;
 
     public async Task<string> RecognizeAsync(
         byte[] pngBytes,

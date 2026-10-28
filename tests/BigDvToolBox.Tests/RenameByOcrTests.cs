@@ -256,7 +256,7 @@ public sealed class RenameByOcrTests
             "Features",
             "RenameByOCR",
             "tessdata");
-        using var service = new TesseractOcrService(tessdata);
+        using var service = new TesseractOcrService(new(tessdata, "eng+ces+pol+rus", false));
         Assert.IsNotNull(service);
     }
 
@@ -325,7 +325,10 @@ public sealed class RenameByOcrTests
             var document = new RenderedDocument(pdfPath, previewBytes, 1000, 800, 400);
             var renderer = new RecordingRenderer(document, croppedBytes);
             var ocr = new RecordingOcrService("9341BG");
-            using var viewModel = new RenameByOcrViewModel(renderer, () => ocr);
+            using var environment = new OcrSettingsTestEnvironment();
+            using var viewModel = new RenameByOcrViewModel(renderer, _ => ocr,
+                environment.Store, environment.Models);
+            await viewModel.InitializeOcrSettingsAsync();
 
             await viewModel.LoadFolderAsync(folder);
             RenderedDocument? current = viewModel.CurrentDocument;
@@ -399,7 +402,7 @@ public sealed class RenameByOcrTests
             "Features",
             "RenameByOCR",
             "tessdata");
-        using var ocr = new TesseractOcrService(tessdata);
+        using var ocr = new TesseractOcrService(new(tessdata, "eng+ces+pol+rus", false));
         var region = new NormalizedOcrRegion(0.0321, 0.0726, 0.3356, 0.1627);
 
         foreach ((string fileName, string expectedText) in expected)

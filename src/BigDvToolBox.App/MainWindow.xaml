@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:filePool="using:BigDvToolBox_App.Features.FilePool"
     xmlns:local="using:BigDvToolBox_App"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="BigDvToolBox"
@@ -28,6 +29,10 @@
                 <ImageIconSource ImageSource="/Assets/BigDvToolBoxIcon.ico" />
             </TitleBar.IconSource>
             <TitleBar.RightHeader>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="FilePoolButton" Content="文件池 · 0" Click="FilePoolButton_Click"
+                        VerticalAlignment="Center" AutomationProperties.AutomationId="OpenFilePool"
+                        AutomationProperties.Name="打开公共文件池" ToolTipService.ToolTip="打开公共文件池" />
                 <MenuBar
                     Margin="0,0,8,0"
                     VerticalAlignment="Center"
@@ -50,12 +55,20 @@
                             Text="关于" />
                     </MenuBarItem>
                 </MenuBar>
+                </StackPanel>
             </TitleBar.RightHeader>
         </TitleBar>
 
+        <SplitView x:Name="FilePoolDrawer" Grid.Row="1" DisplayMode="Overlay" PanePlacement="Right"
+            OpenPaneLength="360" IsPaneOpen="False" LightDismissOverlayMode="On"
+            PaneOpened="FilePoolDrawer_PaneOpened" PaneClosed="FilePoolDrawer_PaneClosed" SizeChanged="FilePoolDrawer_SizeChanged">
+            <SplitView.Pane>
+                <Border BorderThickness="1,0,0,0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                    <filePool:FilePoolPanel x:Name="PoolPanel" />
+                </Border>
+            </SplitView.Pane>
         <NavigationView
             x:Name="NavView"
-            Grid.Row="1"
             AutomationProperties.AutomationId="MainNavigation"
             AutomationProperties.Name="工具导航"
             IsBackButtonVisible="Collapsed"
@@ -72,6 +85,7 @@
                 SelectionChanged="ToolTabView_SelectionChanged"
                 TabCloseRequested="ToolTabView_TabCloseRequested" />
         </NavigationView>
+        </SplitView>
 
         <ContentDialog
             x:Name="AboutDialog"

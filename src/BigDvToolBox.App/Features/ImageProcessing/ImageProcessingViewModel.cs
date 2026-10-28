@@ -1,3 +1,4 @@
+using BigDvToolBox_App.Features.FilePool;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 
@@ -153,7 +154,7 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
                 continue;
             }
 
-            Files.Add(new ImageFileItem(fullPath));
+            Files.Add(new ImageFileItem(fullPath) { PoolId = _filePool?.Track(fullPath) });
             added++;
         }
 
@@ -251,11 +252,14 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
         [
             .. Files.Where(item => item.IsSelectedForProcessing),
         ];
+        if (!ReservePoolFiles(files.Select(f => new FileAccessPath(f.FilePath)), out var poolLease)) return default;
+        using var reservedFiles = poolLease;
         foreach (ImageFileItem file in files)
         {
             file.SetWaiting();
         }
 
+        string? outputDirectory = OutputDirectory;
         var reservedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var options = new ImageResizeOptions(
             TargetLongEdge,
@@ -298,10 +302,13 @@ internal sealed partial class ImageProcessingViewModel : ObservableObject
                 {
                     string outputPath = ImageProcessingFileRules.ResolveOutputPath(
                         file.FilePath,
-                        OutputDirectory,
+                        outputDirectory,
                         options.OutputFormat,
-                        ConflictPolicy,
+                        options.ConflictPolicy,
                         reservedPaths);
+                    if (!ReservePoolFiles([new(outputPath)], out var outputLease))
+                        throw new IOException("输出文件正在其他模块中使用，请稍后重试。");
+                    using var reservedOutput = outputLease;
                     ImageResizeResult result = await _resizeService.ResizeAsync(
                         file.FilePath,
                         outputPath,

@@ -58,7 +58,10 @@ internal sealed partial class ImageFileItem : ObservableObject
         FilePath = filePath;
     }
 
-    internal string FilePath { get; }
+    internal Guid? PoolId { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FileName), nameof(ProcessingSelectionName))]
+    public partial string FilePath { get; set; } = string.Empty;
 
     internal string FileName => Path.GetFileName(FilePath);
 

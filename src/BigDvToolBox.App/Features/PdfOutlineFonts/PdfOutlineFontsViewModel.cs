@@ -1,3 +1,4 @@
+using BigDvToolBox_App.Features.FilePool;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 
@@ -155,7 +156,7 @@ internal sealed partial class PdfOutlineFontsViewModel : ObservableObject
                 continue;
             }
 
-            Files.Add(new PdfFileItem(fullPath));
+            Files.Add(new PdfFileItem(fullPath) { PoolId = _filePool?.Track(fullPath) });
             added++;
         }
 
@@ -223,6 +224,13 @@ internal sealed partial class PdfOutlineFontsViewModel : ObservableObject
         }
 
         PdfFileItem[] files = [.. Files];
+        string? outputDirectory = OutputDirectory;
+        var mode = (PdfConvertMode)ConvertModeIndex;
+        int dpi = SelectedDpi;
+        if (!ReservePoolFiles(files.SelectMany(f => new[] {
+            new FileAccessPath(f.FilePath), new FileAccessPath(PdfOutlineFileRules.GetOutputPath(f.FilePath, outputDirectory))
+        }), out var poolLease)) return default;
+        using var reservedFiles = poolLease;
         foreach (PdfFileItem file in files)
         {
             file.SetWaiting();
@@ -257,14 +265,15 @@ internal sealed partial class PdfOutlineFontsViewModel : ObservableObject
                 file.SetConverting();
                 string outputPath = PdfOutlineFileRules.GetOutputPath(
                     file.FilePath,
-                    OutputDirectory);
+                    outputDirectory);
                 await _ghostscriptService.ConvertAsync(
                     file.FilePath,
                     outputPath,
-                    (PdfConvertMode)ConvertModeIndex,
-                    SelectedDpi,
+                    mode,
+                    dpi,
                     token);
                 file.SetCompleted();
+                _filePool?.Service.ReplacePdfOutput(file.FilePath, outputPath);
                 Interlocked.Increment(ref succeeded);
             }
             catch (OperationCanceledException)

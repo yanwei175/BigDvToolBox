@@ -8,6 +8,7 @@ namespace BigDvToolBox_App.Features.BatchRename;
 
 public partial class RenameRowViewModel(string path, EntryKind kind) : ObservableObject
 {
+    internal Guid? PoolId { get; set; }
     public EntryKind Kind { get; } = kind;
     public long ImportOrder { get; init; }
     [ObservableProperty] public partial string CurrentPath { get; set; } = path;
@@ -160,6 +161,7 @@ public partial class BatchRenameViewModel : ObservableObject
                 if (!existing.Add(path)) continue;
                 var row = new RenameRowViewModel(path, folders ? EntryKind.Folder : EntryKind.File)
                 { ImportOrder = _nextImportOrder++ };
+                row.PoolId = folders ? null : _filePool?.Track(path);
                 row.PropertyChanged += RowChanged; rows.Add(row);
             }
             SortRows(); StatusText = $"已加载 {rows.Count} 个{(folders ? "文件夹" : "文件")}，路径重复的项目已忽略。";
@@ -249,6 +251,11 @@ public partial class BatchRenameViewModel : ObservableObject
     {
         if (_preview is null) return;
         var plan = _preview; var rows = _previewRows;
+        if (!ReservePoolFiles(plan.SelectMany(o => new[] {
+            new BigDvToolBox_App.Features.FilePool.FileAccessPath(o.Source.Path, o.Source.Kind == EntryKind.Folder),
+            new BigDvToolBox_App.Features.FilePool.FileAccessPath(o.TargetPath, o.Source.Kind == EntryKind.Folder)
+        }), out var poolLease)) return;
+        using var reservedFiles = poolLease;
         _previewCancellation?.Cancel(); _revision++; IsBusy = true; Progress = 0;
         StatusText = "正在执行重命名；取消时会尝试恢复原名称。";
         _operationCancellation = new();
@@ -262,6 +269,10 @@ public partial class BatchRenameViewModel : ObservableObject
                 rows[i].Status = item.Succeeded ? item.Operation.IsUnchanged ? "无需修改" : "已重命名"
                     : string.Equals(item.CurrentPath, item.Operation.Source.Path, StringComparison.Ordinal) ? "未执行／已恢复" : "需检查当前路径";
             }
+            reservedFiles?.Dispose();
+            _filePool?.PublishRenames(result.Items
+                .Where(i => !string.Equals(i.Operation.Source.Path, i.CurrentPath, StringComparison.Ordinal))
+                .Select(i => new BigDvToolBox_App.Features.FilePool.PathChange(i.Operation.Source.Path, i.CurrentPath, i.Operation.Source.Kind == EntryKind.Folder)).ToArray());
             int succeeded = result.Items.Count(i => i.Succeeded && !i.Operation.IsUnchanged);
             StatusText = $"{(result.Cancelled ? "操作已取消" : "批次结束")}：成功 {succeeded} 项，未完成 {result.Items.Count(i => !i.Succeeded)} 项。";
             Summary = StatusText;

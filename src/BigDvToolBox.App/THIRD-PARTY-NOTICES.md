@@ -11,7 +11,7 @@ BigDvToolBox 原创代码：Copyright © 2026 YanWei，AGPL-3.0-or-later。
 | InteropDotNet（随 Tesseract wrapper） | 内嵌 | MIT；Copyright 2014 Andrey Akinshin；https://github.com/AndreyAkinshin/InteropDotNet |
 | Tesseract OCR | 5.x（wrapper 内附原生 DLL） | Apache-2.0；https://github.com/tesseract-ocr/tesseract |
 | Leptonica | 1.82.0 | BSD-2-Clause；http://www.leptonica.org/ |
-| Tesseract tessdata（ces、eng、pol、rus） | 仓库内附数据 | Apache-2.0；https://github.com/tesseract-ocr/tessdata |
+| Tesseract tessdata_best（ces、eng、pol、rus） | 仓库内附 LSTM 数据；来源/哈希见 Licenses/tessdata/README.md | Apache-2.0；https://github.com/tesseract-ocr/tessdata_best |
 | CommunityToolkit.Mvvm | 8.4.2 | MIT；https://github.com/CommunityToolkit/dotnet |
 | .NET / Microsoft.Extensions 等运行组件 | 10.0 / 8.0 | MIT 及各组件附带声明；https://github.com/dotnet |
 | Windows App SDK | 2.5.1 | 随包 Microsoft 许可及第三方声明；https://github.com/microsoft/WindowsAppSDK |

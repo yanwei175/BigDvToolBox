@@ -24,6 +24,46 @@ public sealed partial class RenameByOcrPage : Page
         ContentSelector.SelectedItem = ContentSelector.Items[0];
     }
 
+    private async void Page_Loaded(object sender, RoutedEventArgs e) =>
+        await ViewModel.InitializeOcrSettingsAsync();
+
+    private async void SelectModelDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.CanConfigure || _isSelectingFolder) return;
+        _isSelectingFolder = true;
+        try
+        {
+            var picker = new FolderPicker(XamlRoot.ContentIslandEnvironment.AppWindowId);
+            PickFolderResult? result = await picker.PickSingleFolderAsync();
+            if (result is not null) await ViewModel.SetModelDirectoryAsync(result.Path);
+        }
+        catch (Exception exception)
+        {
+            ViewModel.ReportFolderInputError($"模型目录选择失败：{exception.Message}");
+        }
+        finally { _isSelectingFolder = false; }
+    }
+
+    private async void DefaultModelDirectory_Click(object sender, RoutedEventArgs e) =>
+        await ViewModel.SetModelDirectoryAsync(null);
+
+    private async void RefreshLanguages_Click(object sender, RoutedEventArgs e) =>
+        await ViewModel.RefreshLanguagesAsync();
+
+    private async void OpenModelDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            StorageFolder folder = await StorageFolder.GetFolderFromPathAsync(ViewModel.ModelDirectory);
+            if (!await Windows.System.Launcher.LaunchFolderAsync(folder))
+                ViewModel.ReportFolderInputError("无法打开模型目录。");
+        }
+        catch (Exception exception)
+        {
+            ViewModel.ReportFolderInputError($"无法打开模型目录：{exception.Message}");
+        }
+    }
+
     private async void SelectFolder_Click(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.CanConfigure || _isSelectingFolder)
@@ -290,7 +330,7 @@ public sealed partial class RenameByOcrPage : Page
         stream.Seek(0);
         var image = new BitmapImage();
         await image.SetSourceAsync(stream);
-        PreviewImage.Source = image;
+        if (ReferenceEquals(bytes, ViewModel.CurrentPreviewBytes)) PreviewImage.Source = image;
     }
 
     private void UpdateSelectionRectangle()
